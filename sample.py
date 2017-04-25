@@ -22,7 +22,13 @@ def sliding_average(array, size):
 def unzip(a):
     return ([x for (x,y) in a], [y for (x,y) in a])
 
-def get_raw_data(path):
+def inline_avg(array, idx, a_length = 70):
+    lower = max(0, idx-a_length)
+    upper = min(len(array), idx+a_length)
+
+    return sum(array[lower:upper])/(upper-lower)
+
+def get_frequency_data(path):
     wave_file = wave.open(path, "rb")
     WIDTH  = wave_file.getsampwidth()
     RATE   = wave_file.getframerate()
@@ -43,14 +49,18 @@ def get_raw_data(path):
     dft = np.abs(dft)
     dft = np.vectorize(math.log)(dft)
     dft = sliding_window(dft, 5, max)
-    #dft = sliding_window(dft, 70, lambda x: sum(x)/len(x))
-    dft = sliding_average(dft, 70)
     fqs = fftpack.fftfreq(len(data),float(1)/RATE)[:len(data)/2]
+    return fqs, dft
+
+
+def get_raw_data(path):
+    fqs, dft = fetch_frequency_data(path)
+    dft = sliding_average(dft, 70)
     return (fqs, dft)
 
 
 def get_data(path, points = 1024):
-    fqs, dft = get_raw_data(path)
+    fqs, dft = get_frequency_data(path)
     highest = max(dft[BASE_CUTOFF:])
     
     if type(points) == int:
@@ -58,7 +68,8 @@ def get_data(path, points = 1024):
         points = [BASE_CUTOFF + INTVL * i for i in range(points)]
 
     idxs = np.searchsorted(fqs, points)
-    results = [(dft[i]/highest, j) if i < len(dft) else None for (i,j) in zip(idxs, points)]
+    results = [(inline_avg(dft, i)/highest, j) 
+            if i < len(dft) else None for (i,j) in zip(idxs, points)]
     results = filter(lambda x: x is not None, results)
 
     amps, frqs = unzip(results)
