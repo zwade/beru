@@ -71,7 +71,7 @@ class Sample:
 
     def get_frequency_data(self):
         if self.fqs is not None and self.dft is not None:
-            return fqs, dft
+            return self.fqs, self.dft
 
         data = np.abs(self.data)
         dft = np.fft.fft(data)[:len(data)/2]
@@ -86,7 +86,7 @@ class Sample:
 
 
     def get_smooth_data(self):
-        fqs, dft = self.fetch_frequency_data()
+        fqs, dft = self.get_frequency_data()
         dft = sliding_average(dft, 70)
         return (fqs, dft)
 
@@ -94,14 +94,15 @@ class Sample:
     def get_data(self, points = 1024):
         fqs, dft = self.get_frequency_data()
         cutoff = np.searchsorted(fqs, BASE_CUTOFF)
+        print fqs[cutoff]
         highest = max(dft[cutoff:])
         
         if type(points) == int:
             INTVL = min(len(dft)-cutoff, 20000)/points
-            points = [cutoff + INTVL * i for i in range(points)]
+            points = [BASE_CUTOFF + INTVL * i for i in range(points)]
 
         idxs = np.searchsorted(fqs, points)
-        results = [(inline_avg(dft, i)/highest, j) 
+        results = [(inline_avg(dft, i)/highest, fqs[j]) 
                 if i < len(dft) else None for (i,j) in zip(idxs, points)]
         results = filter(lambda x: x is not None, results)
 
@@ -120,7 +121,6 @@ class Sample:
             data[i] = Sample.from_data(self.data[int(i*sample_len):min(self.FRAMES, int((i+1)*sample_len))], self.RATE)
 
         return data
-
 
 def get_all_samples(points = 1024):
     samples = {}
