@@ -28,64 +28,112 @@ def inline_avg(array, idx, a_length = 70):
 
     return sum(array[lower:upper])/(upper-lower)
 
-def get_frequency_data(path):
-    wave_file = wave.open(path, "rb")
-    WIDTH  = wave_file.getsampwidth()
-    RATE   = wave_file.getframerate()
-    FRAMES = wave_file.getnframes()
 
-    CHUNK_SIZE = 1024
+class Sample:
+    def __init__(self):
+        self.data = None
+        self.RATE = None
+        self.fqs  = None
+        self.dft  = None
 
-    data = array('h')
-    read = 0
+    @classmethod
+    def from_file(this, path):
+        self = this()
+        wave_file = wave.open(path, "rb")
+        WIDTH  = wave_file.getsampwidth()
+        RATE   = wave_file.getframerate()
+        FRAMES = wave_file.getnframes()
 
-    while read < FRAMES:
-        snd_data = array('h', wave_file.readframes(CHUNK_SIZE))
-        read += len(snd_data)
-        data.extend(snd_data)
+        CHUNK_SIZE = 1024
 
-    data = np.abs(data)
-    dft = np.fft.fft(data)[:len(data)/2]
-    dft = np.abs(dft)
-    dft = np.vectorize(math.log)(dft)
-    dft = sliding_window(dft, 5, max)
-    fqs = fftpack.fftfreq(len(data),float(1)/RATE)[:len(data)/2]
-    return fqs, dft
+        data = array('h')
+        read = 0
+
+        while read < FRAMES:
+            snd_data = array('h', wave_file.readframes(CHUNK_SIZE))
+            read += len(snd_data)
+            data.extend(snd_data)
+        
+        self.RATE   = RATE
+        self.FRAMES = FRAMES
+        self.data   = data
+
+        return self
+
+    @classmethod
+    def from_data(this, data, RATE):
+        self = this()
+        self.data   = data
+        self.RATE   = RATE
+        self.FRAMES = len(data)
+
+        return self
+
+    def get_frequency_data(self):
+        if self.fqs is not None and self.dft is not None:
+            return fqs, dft
+
+        data = np.abs(self.data)
+        dft = np.fft.fft(data)[:len(data)/2]
+        dft = np.abs(dft)
+        dft = np.vectorize(math.log)(dft)
+        dft = sliding_window(dft, 5, max)
+        fqs = fftpack.fftfreq(len(data),float(1)/self.RATE)[:len(data)/2]
+        
+        self.fqs = fqs
+        self.dft = dft
+        return fqs, dft
 
 
-def get_raw_data(path):
-    fqs, dft = fetch_frequency_data(path)
-    dft = sliding_average(dft, 70)
-    return (fqs, dft)
+    def get_smooth_data(self):
+        fqs, dft = self.fetch_frequency_data()
+        dft = sliding_average(dft, 70)
+        return (fqs, dft)
 
 
-def get_data(path, points = 1024):
-    fqs, dft = get_frequency_data(path)
-    highest = max(dft[BASE_CUTOFF:])
-    
-    if type(points) == int:
-        INTVL = min(len(dft)-BASE_CUTOFF, 20000)/points
-        points = [BASE_CUTOFF + INTVL * i for i in range(points)]
+    def get_data(self, points = 1024):
+        fqs, dft = self.get_frequency_data()
+        cutoff = np.searchsorted(fqs, BASE_CUTOFF)
+        highest = max(dft[cutoff:])
+        
+        if type(points) == int:
+            INTVL = min(len(dft)-cutoff, 20000)/points
+            points = [cutoff + INTVL * i for i in range(points)]
 
-    idxs = np.searchsorted(fqs, points)
-    results = [(inline_avg(dft, i)/highest, j) 
-            if i < len(dft) else None for (i,j) in zip(idxs, points)]
-    results = filter(lambda x: x is not None, results)
+        idxs = np.searchsorted(fqs, points)
+        results = [(inline_avg(dft, i)/highest, j) 
+                if i < len(dft) else None for (i,j) in zip(idxs, points)]
+        results = filter(lambda x: x is not None, results)
 
-    amps, frqs = unzip(results)
+        amps, frqs = unzip(results)
 
-    return frqs, amps
+        return frqs, amps
+
+    def time_divide_samples(self, points = 1024, size = 0.5):
+        size = float(size)
+
+        sample_len  = self.RATE*size
+        num_samples = int(math.ceil(self.FRAMES/sample_len))
+        data = [None for i in range(num_samples)]
+
+        for i in range(num_samples):
+            data[i] = Sample.from_data(self.data[int(i*sample_len):min(self.FRAMES, int((i+1)*sample_len))], self.RATE)
+
+        return data
+
 
 def get_all_samples(points = 1024):
     samples = {}
     for path in glob.glob("data/*/*.wav"):
         elements = path.split("/")
         sample_name = elements[1]
-        frqs, amps = get_data(path, points)
+        sample = Sample.from_file(path)
+        frqs, amps = sample.get_data(points)
         if sample_name not in samples:
             samples[sample_name] = (frqs, [])
         samples[sample_name][1].append(amps)
     return samples
 
 if __name__ == "__main__":
-    print get_data("data/x-pad/0.wav", 10)
+    sample = Sample.from_file("data/x-pad/0.wav")
+    print sample.get_data(10)
