@@ -94,7 +94,6 @@ class Sample:
     def get_data(self, points = 1024):
         fqs, dft = self.get_frequency_data()
         cutoff = np.searchsorted(fqs, BASE_CUTOFF)
-        print fqs[cutoff]
         highest = max(dft[cutoff:])
         
         if type(points) == int:
@@ -102,7 +101,7 @@ class Sample:
             points = [BASE_CUTOFF + INTVL * i for i in range(points)]
 
         idxs = np.searchsorted(fqs, points)
-        results = [(inline_avg(dft, i)/highest, fqs[j]) 
+        results = [(inline_avg(dft, i)/highest, j) 
                 if i < len(dft) else None for (i,j) in zip(idxs, points)]
         results = filter(lambda x: x is not None, results)
 
