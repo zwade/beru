@@ -12,11 +12,11 @@ def load_data():
 	inputs_tr = [(n, e) for (n, (f, data)) in iteritems(samples['training']) for e in data]
 	inputs_ts = [(n, e) for (n, (f, data)) in iteritems(samples['test']) for e in data]
 
-	names = [n for (n, d) in iteritems(samples['training'])]
+	names = [n for (n, d) in iteritems(samples['training']) if n != "noise"]
 
 	out_tr, inp_tr = sample.unzip(inputs_tr)
 	out_ts, inp_ts = sample.unzip(inputs_ts)
 
-	out_tr = [singleton(names.index(n), len(names)) for n in out_tr]
-	out_ts = [singleton(names.index(n), len(names)) for n in out_ts]
+	out_tr = [np.zeros((1, len(names))) if n == "noise" else singleton(names.index(n), len(names)) for n in out_tr]
+	out_ts = [np.zeros((1, len(names))) if n == "noise" else singleton(names.index(n), len(names)) for n in out_ts]
 	return inp_tr, out_tr, inp_ts, out_ts

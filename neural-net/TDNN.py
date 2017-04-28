@@ -35,6 +35,8 @@ class TDNN:
 		self.testing_tests = 0
 		self.testing_total_steps = 1
 		self.testing_current_step = 1
+		self.testing_incorrect_sum = None
+		self.testing_incorrect_labels_sum = None
 		self.testing = False
 		self.timer = None
 
@@ -157,14 +159,17 @@ class TDNN:
 		incorrect = 0
 		tests = 0
 		self.testing_total_steps = len(X)
+		self.testing_incorrect_sum = np.zeros((1, self.layers[-1, 0]))
+		self.testing_incorrect_labels_sum = np.zeros((1, self.layers[-1, 0]))
 
 		for i in range(len(X)):
 			self.testing_current_step = i
 			if Y[i] is None:
 				continue
+
 			label = self.forward_propagate(X[i])
 			error += np.sum(self.square(Y[i] - label))
-			
+
 			case_concluded = True
 			case_correct = True
 
@@ -180,8 +185,12 @@ class TDNN:
 				correct += 1
 			elif not case_concluded:
 				inconclusive += 1
+				self.testing_incorrect_sum += Y[i]
+				self.testing_incorrect_labels_sum += label
 			else:
 				incorrect += 1
+				self.testing_incorrect_sum += Y[i]
+				self.testing_incorrect_labels_sum += label
 
 			tests += 1
 			self.back_propagate(Y[i])
@@ -251,7 +260,7 @@ class TDNN:
 				outcomes_fmt = "{0:" + str(cases_len) + "d} OK / {1:" + str(cases_len) + "d} ?? / {2:" + str(cases_len) + "d} WA"
 				partial_str = outcomes_fmt.format(self.correct, self.inconclusive, self.incorrect)
 				print("Training Outcomes", " " * (width - 17 - len(partial_str)), partial_str, sep="")
-				
+
 				training_bar_correct = int(1.0 * self.correct / self.tests * width)
 				training_bar_inconclusive = int(1.0 * self.inconclusive / self.tests * width)
 				training_bar_incorrect = width - training_bar_correct - training_bar_inconclusive
@@ -277,7 +286,7 @@ class TDNN:
 			outcomes_fmt = "{0:" + str(cases_len) + "d} OK / {1:" + str(cases_len) + "d} ?? / {2:" + str(cases_len) + "d} WA"
 			partial_str = outcomes_fmt.format(self.testing_correct, self.testing_inconclusive, self.testing_incorrect)
 			print("Last Testing Outcomes", " " * (width - 21 - len(partial_str)), partial_str, sep="")
-			
+
 			training_bar_correct = int(1.0 * self.testing_correct / self.testing_tests * width)
 			training_bar_inconclusive = int(1.0 * self.testing_inconclusive / self.testing_tests * width)
 			training_bar_incorrect = width - training_bar_correct - training_bar_inconclusive
@@ -292,6 +301,8 @@ class TDNN:
 
 			print()
 			print("Testing Error: {0:.6f}".format(self.testing_error))
+			print("Testing Failures:", self.testing_incorrect_sum)
+			print("Testing Labels:", self.testing_incorrect_labels_sum)
 
 
 		self.timer = Timer(SCREEN_UPDATE_RATE, self.print)
