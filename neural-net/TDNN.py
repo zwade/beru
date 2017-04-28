@@ -17,7 +17,9 @@ class TDNN:
 		if input_file is not None:
 			print("Loading weights from file...")
 			archive = np.load(input_file)
-			self.layers, *self.matrices = [archive[file] for file in archive.files]
+                        parts = [archive[file] for file in archive.files]
+			self.layers = parts[0]
+                        self.matrices = parts[1:]
 			print(self.matrices)
 		elif layers is not None:
 			print("Generating new weights for layers", layers, "...")
