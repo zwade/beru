@@ -8,8 +8,15 @@ def singleton(idx, length):
 
 def load_data():
 	samples = sample.get_all_samples(33)
-	inputs = [(n, e) for (n, (f, data)) in iteritems(samples) for e in data]
-	names = [n for (n, d) in iteritems(samples)]
-	out, inp = sample.unzip(inputs)
-	out = [singleton(names.index(n), len(names)) for n in out]
-	return inp, out, inp, out
+
+	inputs_tr = [(n, e) for (n, (f, data)) in iteritems(samples['training']) for e in data]
+	inputs_ts = [(n, e) for (n, (f, data)) in iteritems(samples['test']) for e in data]
+
+	names = [n for (n, d) in iteritems(samples['training'])]
+
+	out_tr, inp_tr = sample.unzip(inputs_tr)
+	out_ts, inp_ts = sample.unzip(inputs_ts)
+
+	out_tr = [singleton(names.index(n), len(names)) for n in out_tr]
+	out_ts = [singleton(names.index(n), len(names)) for n in out_ts]
+	return inp_tr, out_tr, inp_ts, out_ts

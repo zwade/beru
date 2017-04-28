@@ -36,8 +36,6 @@ train.add_argument("--testfirst", "-t", action = "store_true", help = "Start wit
 
 args = parser.parse_args()
 
-print(args)
-
 if args.command == "init":
 	net = TDNN(layers = args.layers)
 	net.save(dir_path + "/nets/" + args.output_file + ".npz")

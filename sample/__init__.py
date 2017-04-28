@@ -49,11 +49,11 @@ def get_frequency_data(path):
 		data.extend(snd_data)
 
 	data = np.abs(data)
-	dft = np.fft.fft(data)[:len(data)/2]
+	dft = np.fft.fft(data)[:len(data)//2]
 	dft = np.abs(dft)
 	dft = np.vectorize(math.log)(dft)
 	dft = sliding_window(dft, 5, max)
-	fqs = fftpack.fftfreq(len(data),float(1)/RATE)[:len(data)/2]
+	fqs = fftpack.fftfreq(len(data),float(1)/RATE)[:len(data)//2]
 	return fqs, dft
 
 
@@ -98,4 +98,4 @@ def get_all_samples(points = 1024):
 	}
 
 if __name__ == "__main__":
-	print get_data(dir_path + "data/x-pad/0.wav", 10)
+	print(get_data(dir_path + "data/x-pad/0.wav", 10))

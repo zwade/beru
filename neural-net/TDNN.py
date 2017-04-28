@@ -200,7 +200,7 @@ class TDNN:
 		return np.insert(v, v.size, 1)
 
 	def print(self):
-		print("\033[2J\033[;H\033[0m", end="")
+		print("\033[2J\033[3J\033[;H\033[0m", end="")
 		rows, columns = subprocess.check_output(['stty', 'size']).decode().split()
 		width = int(columns)
 		print()
