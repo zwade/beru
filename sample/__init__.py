@@ -128,7 +128,7 @@ def get_all_in_path(p, points = 1024, bucket_len = 0.5):
 	samples = {}
 	for path in glob.glob(p):
 		elements = path.split("/")
-		sample_name = elements[1]
+		sample_name = elements[-2]
 		sample = Sample.from_file(path)
 		current = []
 		for s in sample.time_divide_samples(points, bucket_len):
