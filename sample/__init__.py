@@ -29,7 +29,7 @@ def inline_avg(array, idx, a_length = 70):
 	lower = max(0, idx-a_length)
 	upper = min(len(array), idx+a_length)
 
-	return sum(array[lower:upper])//(upper-lower)
+	return sum(array[lower:upper])/(upper-lower)
 
 
 class Sample:
@@ -99,7 +99,7 @@ class Sample:
 		cutoff = np.searchsorted(fqs, BASE_CUTOFF)
 		
 		if type(points) == int:
-			INTVL = min(len(dft)-cutoff, 20000)//points
+			INTVL = min(len(dft)-cutoff, 20000)/(points+1)
 			points = [BASE_CUTOFF + INTVL * i for i in range(points)]
 
 		idxs = np.searchsorted(fqs, points)
@@ -115,7 +115,7 @@ class Sample:
 		size = float(size)
 
 		sample_len  = self.RATE*size
-		num_samples = int(math.ceil(self.FRAMES//sample_len))
+		num_samples = int(math.ceil(self.FRAMES/sample_len))
 		data = [None for i in range(num_samples)]
 
 		for i in range(num_samples):
@@ -134,8 +134,9 @@ def get_all_in_path(p, points = 1024, bucket_len = 0.5):
 			frqs, amps = s.get_data(points)
 			current = current + amps
 
-		highest = max(amps)
-		current = [i / float(highest) for i in current]
+		highest = max(current)
+		lowest  = min(current)
+		current = [(i - lowest) / (float(highest) - float(lowest)) for i in current]
 		if sample_name not in samples:
 			samples[sample_name] = (frqs, [])
 		samples[sample_name][1].append(current)
