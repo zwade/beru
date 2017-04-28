@@ -1,3 +1,4 @@
+from __future__ import print_function
 import wave
 import math
 import glob
@@ -91,4 +92,4 @@ def get_all_samples(points = 1024):
     return samples
 
 if __name__ == "__main__":
-    print get_data(dir_path + "data/x-pad/0.wav", 10)
+    print(get_data(dir_path + "data/x-pad/0.wav", 10))

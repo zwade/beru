@@ -1,5 +1,6 @@
 #!/usr/bin/env python2.7
 
+from __future__ import print_function
 import signal
 import pyaudio
 import wave
@@ -57,7 +58,7 @@ while True:
     name = raw_input()
     existing = 0
     if name in samples:
-        print "{} has {} samples recorded. Adding more.".format(name, samples[name]+1)
+        print("{} has {} samples recorded. Adding more.".format(name, samples[name]+1))
         existing = samples[name]+1
     else:
         try:
@@ -69,7 +70,7 @@ while True:
     sys.stdout.write("Length of recording (3): ")
     length = safe_int(raw_input(), 3)
 
-    print "Ready?" 
+    print("Ready?")
     time.sleep(1)
     sys.stdout.write(color("3...", "RED"))
     sys.stdout.flush()
@@ -80,9 +81,9 @@ while True:
     sys.stdout.write(color("1...", "RED"))
     sys.stdout.flush()
     time.sleep(1)
-    print ""
+    print("")
     for i in range(existing, existing+num):
-        print "Draw a(n) {}".format(color(name, "BLUE"))
+        print("Draw a(n) {}".format(color(name, "BLUE")))
         
         r = array('h')
         t = 0
@@ -98,7 +99,7 @@ while True:
         wav_file.setframerate(RATE)
         wav_file.writeframes(data)
         wav_file.close()
-        print color("Good!", "GREEN")
+        print(color("Good!", "GREEN"))
         time.sleep(0.5)
 
 
