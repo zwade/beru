@@ -11,8 +11,8 @@ import subprocess
 SELECTION_THRESHOLD = .75
 NON_SELECTION_THRESHOLD = .25
 SCREEN_UPDATE_RATE = .2
-PROGRESS_CHAR = "\u2593"
-NON_PROGRESS_CHAR = "\u2591"
+PROGRESS_CHAR = u"\u2593"
+NON_PROGRESS_CHAR = u"\u2591"
 
 class TDNN:
 	def __init__(self, input_file = None, layers = None, learning_rate = 0.1):

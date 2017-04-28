@@ -12,16 +12,17 @@ def load_data():
 	# random.shuffle(out)
 	# return inp, out, inp, out
 
-
         samples = sample.get_all_samples(33)
 
+        inputs_tr = [(n, e) for (n, (f, data)) in samples['training'].iteritems() for e in data]
+        inputs_ts = [(n, e) for (n, (f, data)) in samples['training'].iteritems() for e in data]
 
-        inputs = [(n, e) for (n, (f, data)) in samples.iteritems() for e in data]
+        names = [n for (n, d) in samples['training'].iteritems()]
 
-        names = [n for (n, d) in samples.iteritems()]
+        out_tr, inp_tr = sample.unzip(inputs_tr)
+        out_ts, inp_ts = sample.unzip(inputs_ts)
 
-        out, inp = sample.unzip(inputs)
-
-        out = [singleton(names.index(n), len(names)) for n in out]
-        return inp, out, inp, out
+        out_tr = [singleton(names.index(n), len(names)) for n in out_tr]
+        out_ts = [singleton(names.index(n), len(names)) for n in out_ts]
+        return inp_tr, out_tr, inp_ts, out_ts
 
