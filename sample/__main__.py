@@ -10,6 +10,7 @@ import os
 import time
 from struct import pack
 from array import array
+from builtins import input
 
 FORMAT = pyaudio.paInt16
 RATE   = 44100
@@ -34,18 +35,18 @@ def safe_int(string, default):
 def die(a,b):
 	sys.exit(0)
 
-signal.signal(signal.SIGINT, die) 
+signal.signal(signal.SIGINT, die)
 
 sys.stdout.write("Test Data? (n): ")
-if raw_input() == "y":
+if input() == "y":
 	dir_path += "/test"
 
 sample_files = glob.glob(dir_path+"/data/*/*.wav")
 samples = {}
 for name in sample_files:
 	params = name.split("/")
-	pattern = params[1]
-	num = int(params[2].split(".")[0])
+	pattern = params[-2]
+	num = int(params[-1].split(".")[0])
 	if pattern not in samples:
 		samples[pattern] = 0
 	samples[pattern] = max(samples[pattern], num)
@@ -55,7 +56,7 @@ stream = audio_inst.open(format=FORMAT, channels=1, rate=RATE, input=True, outpu
 
 while True:
 	sys.stdout.write("Sample name: ")
-	name = raw_input()
+	name = input()
 	existing = 0
 	if name in samples:
 		print("{} has {} samples recorded. Adding more.".format(name, samples[name]+1))
@@ -66,9 +67,9 @@ while True:
 		except OSError:
 			pass
 	sys.stdout.write("Number to record (15): ")
-	num = safe_int(raw_input(), 15)
+	num = safe_int(input(), 15)
 	sys.stdout.write("Length of recording (3): ")
-	length = safe_int(raw_input(), 3)
+	length = safe_int(input(), 3)
 
 	print("Ready?" )
 	time.sleep(1)
@@ -84,7 +85,7 @@ while True:
 	print()
 	for i in range(existing, existing+num):
 		print("Draw a(n) {}".format(color(name, "BLUE")))
-		
+
 		r = array('h')
 		t = 0
 		while t < int(length * RATE):
