@@ -4,8 +4,11 @@ import glob
 import numpy as np
 from scipy import fftpack
 from array import array
+import os 
 
 BASE_CUTOFF = 3000
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
 def sliding_window(array, size, fn):
     return [fn(array[max(0, i-size):min(len(array)-1, i+size)]) for i in range(len(array))]
@@ -78,9 +81,9 @@ def get_data(path, points = 1024):
 
 def get_all_samples(points = 1024):
     samples = {}
-    for path in glob.glob("data/*/*.wav"):
+    for path in glob.glob(dir_path + "/data/*/*.wav"):
         elements = path.split("/")
-        sample_name = elements[1]
+        sample_name = elements[-2]
         frqs, amps = get_data(path, points)
         if sample_name not in samples:
             samples[sample_name] = (frqs, [])
@@ -88,4 +91,4 @@ def get_all_samples(points = 1024):
     return samples
 
 if __name__ == "__main__":
-    print get_data("data/x-pad/0.wav", 10)
+    print get_data(dir_path + "data/x-pad/0.wav", 10)

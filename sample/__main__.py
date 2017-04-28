@@ -14,6 +14,7 @@ FORMAT = pyaudio.paInt16
 RATE   = 44100
 CHUNK  = 4096
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
 colors = {"RED": "196", "BLUE": "21", "GREEN": "40", "ORANGE": "202"}
 def color(string, color):
@@ -34,7 +35,11 @@ def die(a,b):
 
 signal.signal(signal.SIGINT, die) 
 
-sample_files = glob.glob("data/*/*.wav")
+sys.stdout.write("Test Data? (n): ")
+if raw_input() == "y":
+    dir_path += "/test"
+
+sample_files = glob.glob(dir_path+"/data/*/*.wav")
 samples = {}
 for name in sample_files:
     params = name.split("/")
@@ -56,7 +61,7 @@ while True:
         existing = samples[name]+1
     else:
         try:
-            os.mkdir("data/{}".format(name))
+            os.mkdir(dir_path+"/data/{}".format(name))
         except OSError:
             pass
     sys.stdout.write("Number to record (15): ")
@@ -87,7 +92,7 @@ while True:
             t += len(snd_data)
 
         data = pack('<' + ('h'*len(r)), *r)
-        wav_file = wave.open("data/{}/{}.wav".format(name, i), "wb")
+        wav_file = wave.open(dir_path+"/data/{}/{}.wav".format(name, i), "wb")
         wav_file.setnchannels(1)
         wav_file.setsampwidth(audio_inst.get_sample_size(FORMAT))
         wav_file.setframerate(RATE)

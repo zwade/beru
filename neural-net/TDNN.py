@@ -17,7 +17,8 @@ class TDNN:
 		if input_file is not None:
 			print("Loading weights from file...")
 			archive = np.load(input_file)
-                        parts = [archive[file] for file in archive.files]
+                        parts = [archive[file] for file in sorted(archive.files)]
+                        print(parts)
 			self.layers = parts[0]
                         self.matrices = parts[1:]
 			print(self.matrices)
@@ -83,6 +84,7 @@ class TDNN:
 			incorrect = 0.0
 			tests = 0
 			for i in range(len(X)):
+                                #print(Y[i])
 				if i % 100 == 0:
 					pass # print("Training: iteration", t, "case", i)
 				if Y[i] is None:
@@ -99,7 +101,7 @@ class TDNN:
 				self.back_propagate(Y[i])
 				tests += 1
 			print("Training error: ", error / tests, " (", correct / tests, " correct, ", inconclusive / tests, " inconclusive, ", incorrect / tests, " incorrect)", sep="")
-			print(self.matrices)
+			#print(self.matrices)
 
 	def test(self, X, Y):
 		error = 0.0

@@ -9,6 +9,9 @@ import sys
 from TDNN import TDNN
 from load_data import load_data
 
+import os 
+dir_path = os.path.dirname(os.path.realpath(__file__))
+
 def tdnn_layer(s):
 	try:
 		nodes, timeshifts = map(int, s.split(","))
@@ -36,13 +39,13 @@ print(args)
 
 if args.command == "init":
 	net = TDNN(layers = args.layers)
-	net.save("nets/" + args.output_file + ".npz")
+	net.save(dir_path + "/nets/" + args.output_file + ".npz")
 elif args.command == "train":
-	net = TDNN(input_file = "nets/" + args.input_file + ".npz", learning_rate = args.rate)
+	net = TDNN(input_file = dir_path + "/nets/" + args.input_file + ".npz", learning_rate = args.rate)
 
 	def sigint_handler(sig, frame):
 		print("Caught SIGINT.")
-		net.save("nets/" + args.output_file + ".npz")
+		net.save(dir_path + "/nets/" + args.output_file + ".npz")
 		sys.exit(0)
 
 	signal.signal(signal.SIGINT, sigint_handler)
