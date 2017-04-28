@@ -32,6 +32,7 @@ train.add_argument("output_file", metavar = "outfile", help = "Weights file to w
 train.add_argument("--iterations", "-i", type = int, help = "The number of training iterations to run per round", default = 1000)
 train.add_argument("--loop", "-l", action = "store_true", help = "Train in a loop, running test data after each round of training")
 train.add_argument("--rate", "-r", type = float, help = "TDNN learning rate", default = 0.1)
+train.add_argument("--testfirst", "-t", action = "store_true", help = "Start with a round of testing")
 
 args = parser.parse_args()
 
@@ -45,6 +46,7 @@ elif args.command == "train":
 
 	def sigint_handler(sig, frame):
 		print("Caught SIGINT.")
+		net.stop()
 		net.save(dir_path + "/nets/" + args.output_file + ".npz")
 		sys.exit(0)
 
@@ -54,16 +56,19 @@ elif args.command == "train":
 	training_data, training_labels, testing_data, testing_labels = load_data()
 	print("Done.")
 
-	# for case in list(zip(training_data, training_labels)):
-	# 	print(case)
+	net.print()
+
+	if args.testfirst:
+		net.test(testing_data, testing_labels)
 
 	training_round = 0
 
 	while training_round == 0 or args.loop:
-		print("============", "BEGIN TRAINING ROUND", training_round, "============")
 		net.train(training_data, training_labels, args.iterations)
-		print("============", "BEGIN TESTING ROUND", training_round, "============")
-		print(net.test(testing_data, testing_labels))
+		testing_error = net.test(testing_data, testing_labels)
+		training_round += 1
+
+	net.stop()
 
 	print("Training completed.  Saving net...")
-	net.save()
+	net.save(dir_path + "/nets/" + args.output_file + ".npz")
