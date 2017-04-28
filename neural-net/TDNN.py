@@ -41,7 +41,7 @@ class TDNN:
 		if input_file is not None:
 			print("\033[36mLoading weights from file...  \033[0m", end="")
 			archive = np.load(input_file)
-                        parts = [archive[file] for file in sorted(archive.files)]
+			parts = [archive[file] for file in sorted(archive.files)]
 			self.layers = parts[0]
 			self.matrices = parts[1:]
 			print("\033[36m....Done.\033[0m")
