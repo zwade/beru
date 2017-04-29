@@ -7,9 +7,10 @@ import signal
 import sys
 from threading import Timer
 import subprocess
+from six import iteritems
 
-SELECTION_THRESHOLD = .75
-NON_SELECTION_THRESHOLD = .25
+SELECTION_THRESHOLD = .2
+NON_SELECTION_THRESHOLD = .1
 SCREEN_UPDATE_RATE = .2
 PROGRESS_CHAR = u"\u2593"
 NON_PROGRESS_CHAR = u"\u2591"
@@ -28,6 +29,7 @@ class TDNN:
 		self.inconclusive = 0
 		self.incorrect = 0
 		self.tests = 0
+		self.by_category = None
 		self.testing_error = 0
 		self.testing_correct = 0
 		self.testing_inconclusive = 0
@@ -35,8 +37,7 @@ class TDNN:
 		self.testing_tests = 0
 		self.testing_total_steps = 1
 		self.testing_current_step = 1
-		self.testing_incorrect_sum = None
-		self.testing_incorrect_labels_sum = None
+		self.testing_by_category = None
 		self.testing = False
 		self.timer = None
 
@@ -102,7 +103,7 @@ class TDNN:
 			self.matrices[i] += offset / self.layers[i+1, 1]
 			error = next_error / self.layers[i+1, 1]
 
-	def train(self, X, Y, iterations = 1000):
+	def train(self, X, Y, Z, iterations = 1000):
 		self.testing = False
 		self.total_iterations = iterations
 
@@ -112,6 +113,7 @@ class TDNN:
 			inconclusive = 0
 			incorrect = 0
 			tests = 0
+			by_category = dict()
 
 			self.current_iteration = t
 			self.total_steps = len(X)
@@ -137,12 +139,18 @@ class TDNN:
 
 				# print(label, Y[i], case_correct, case_concluded)
 
+				if Z[i] not in by_category:
+					by_category[Z[i]] = [0, 0, 0]
+
 				if case_concluded and case_correct:
 					correct += 1
+					by_category[Z[i]][0] += 1
 				elif not case_concluded:
 					inconclusive += 1
+					by_category[Z[i]][1] += 1
 				else:
 					incorrect += 1
+					by_category[Z[i]][2] += 1
 
 				tests += 1
 				self.back_propagate(Y[i])
@@ -152,14 +160,17 @@ class TDNN:
 			self.inconclusive = inconclusive
 			self.incorrect = incorrect
 			self.tests = tests
+			self.by_category = by_category
 
-	def test(self, X, Y):
+	def test(self, X, Y, Z):
 		self.testing = True
 		error = 0
 		correct = 0
 		inconclusive = 0
 		incorrect = 0
 		tests = 0
+		by_category = dict()
+
 		self.testing_total_steps = len(X)
 		self.testing_incorrect_sum = np.zeros((1, self.layers[-1, 0]))
 		self.testing_incorrect_labels_sum = np.zeros((1, self.layers[-1, 0]))
@@ -183,16 +194,18 @@ class TDNN:
 				elif label[0, j] >= SELECTION_THRESHOLD and Y[i][0, j] == 0:
 					case_correct = False
 
+			if Z[i] not in by_category:
+				by_category[Z[i]] = [0, 0, 0]
+
 			if case_concluded and case_correct:
 				correct += 1
+				by_category[Z[i]][0] += 1
 			elif not case_concluded:
 				inconclusive += 1
-				self.testing_incorrect_sum += Y[i]
-				self.testing_incorrect_labels_sum += label
+				by_category[Z[i]][1] += 1
 			else:
 				incorrect += 1
-				self.testing_incorrect_sum += Y[i]
-				self.testing_incorrect_labels_sum += label
+				by_category[Z[i]][2] += 1
 
 			tests += 1
 			self.back_propagate(Y[i])
@@ -202,6 +215,7 @@ class TDNN:
 		self.testing_inconclusive = inconclusive
 		self.testing_incorrect = incorrect
 		self.testing_tests = tests
+		self.testing_by_category = by_category
 
 	def save(self, output_file):
 		print("\033[36mSaving weights to", output_file, "...  \033[30m", end="")
@@ -217,66 +231,45 @@ class TDNN:
 		print()
 
 		if self.testing:
-			step_bar_done = int(1.0 * self.testing_current_step / self.testing_total_steps * width)
-			step_bar_remaining = width - step_bar_done
-			step_len = len(str(self.testing_total_steps))
-			step_fmt = "{0:" + str(step_len) + "d} / {1:" + str(step_len) + "d}"
-			partial_str = step_fmt.format(self.testing_current_step, self.testing_total_steps)
-			print("Cases", " " * (width - 5 - len(partial_str)), partial_str, sep="")
-			print("\033[34m", end="")
-			print(PROGRESS_CHAR * step_bar_done, end="")
-			print("\033[0;37m", end="")
-			print(NON_PROGRESS_CHAR * step_bar_remaining)
-			print("\033[0m", end="")
+			self.progress("Testing Cases", [
+				(self.testing_current_step, PROGRESS_CHAR, "\033[34m", None),
+				(self.testing_total_steps, NON_PROGRESS_CHAR, "\033[0;37m", None)
+			], self.testing_total_steps, width)
 		else:
-			iter_bar_done = int(1.0 * self.current_iteration / self.total_iterations * width)
-			iter_bar_remaining = width - iter_bar_done
-			iter_len = len(str(self.total_iterations))
-			iter_fmt = "{0:" + str(iter_len) + "d} / {1:" + str(iter_len) + "d}"
-			partial_str = iter_fmt.format(self.current_iteration, self.total_iterations)
-			print("Training Iterations", " " * (width - 19 - len(partial_str)), partial_str, sep="")
-			print("\033[34m", end="")
-			print(PROGRESS_CHAR * iter_bar_done, end="")
-			print("\033[0;37m", end="")
-			print(NON_PROGRESS_CHAR * iter_bar_remaining)
-			print("\033[0m", end="")
+			self.progress("Training Iterations", [
+				(self.current_iteration, PROGRESS_CHAR, "\033[34m", None),
+				(self.total_iterations, NON_PROGRESS_CHAR, "\033[0;37m", None)
+			], self.total_iterations, width)
 
 			print()
 
-			step_bar_done = int(1.0 * self.current_step / self.total_steps * width)
-			step_bar_remaining = width - step_bar_done
-			step_len = len(str(self.total_steps))
-			step_fmt = "{0:" + str(step_len) + "d} / {1:" + str(step_len) + "d}"
-			partial_str = step_fmt.format(self.current_step, self.total_steps)
-			print("Cases", " " * (width - 5 - len(partial_str)), partial_str, sep="")
-			print("\033[34m", end="")
-			print(PROGRESS_CHAR * step_bar_done, end="")
-			print("\033[0;37m", end="")
-			print(NON_PROGRESS_CHAR * step_bar_remaining)
-			print("\033[0m", end="")
+			self.progress("Training Cases", [
+				(self.current_step, PROGRESS_CHAR, "\033[34m", None),
+				(self.total_steps, NON_PROGRESS_CHAR, "\033[30;37m", None)
+			], self.total_steps, width)
 
 			print()
 
 			if self.tests > 0:
-				cases_len = len(str(self.tests))
-				outcomes_fmt = "{0:" + str(cases_len) + "d} OK / {1:" + str(cases_len) + "d} ?? / {2:" + str(cases_len) + "d} WA"
-				partial_str = outcomes_fmt.format(self.correct, self.inconclusive, self.incorrect)
-				print("Training Outcomes", " " * (width - 17 - len(partial_str)), partial_str, sep="")
-
-				training_bar_correct = int(1.0 * self.correct / self.tests * width)
-				training_bar_inconclusive = int(1.0 * self.inconclusive / self.tests * width)
-				training_bar_incorrect = width - training_bar_correct - training_bar_inconclusive
-
-				print("\033[32m", end="")
-				print(PROGRESS_CHAR * training_bar_correct, end="")
-				print("\033[33m", end="")
-				print(PROGRESS_CHAR * training_bar_inconclusive, end="")
-				print("\033[31m", end="")
-				print(PROGRESS_CHAR * training_bar_incorrect)
-				print("\033[0m", end="")
+				self.progress("Training Outcomes", [
+					(self.correct, PROGRESS_CHAR, "\033[32m", "OK"),
+					(self.inconclusive, PROGRESS_CHAR, "\033[33m", "??"),
+					(self.incorrect, PROGRESS_CHAR, "\033[31m", "WA")
+				], self.tests, width)
 
 				print()
 				print("Training Error: {0:.6f}".format(self.error))
+
+				print()
+
+				for (classname, [correct, inconclusive, incorrect]) in iteritems(self.by_category):
+					self.progress(classname, [
+						(correct, PROGRESS_CHAR, "\033[32m", "OK"),
+						(inconclusive, PROGRESS_CHAR, "\033[33m", "??"),
+						(incorrect, PROGRESS_CHAR, "\033[31m", "WA")
+					], correct + inconclusive + incorrect, width)
+
+				print()
 			else:
 				print("Training Outcomes", " " * (width - 28), "[no data]")
 				print(PROGRESS_CHAR * width)
@@ -284,31 +277,51 @@ class TDNN:
 		print()
 
 		if self.testing_tests > 0:
-			cases_len = len(str(self.testing_tests))
-			outcomes_fmt = "{0:" + str(cases_len) + "d} OK / {1:" + str(cases_len) + "d} ?? / {2:" + str(cases_len) + "d} WA"
-			partial_str = outcomes_fmt.format(self.testing_correct, self.testing_inconclusive, self.testing_incorrect)
-			print("Last Testing Outcomes", " " * (width - 21 - len(partial_str)), partial_str, sep="")
-
-			training_bar_correct = int(1.0 * self.testing_correct / self.testing_tests * width)
-			training_bar_inconclusive = int(1.0 * self.testing_inconclusive / self.testing_tests * width)
-			training_bar_incorrect = width - training_bar_correct - training_bar_inconclusive
-
-			print("\033[32m", end="")
-			print(PROGRESS_CHAR * training_bar_correct, end="")
-			print("\033[33m", end="")
-			print(PROGRESS_CHAR * training_bar_inconclusive, end="")
-			print("\033[31m", end="")
-			print(PROGRESS_CHAR * training_bar_incorrect)
-			print("\033[0m", end="")
+			self.progress("Testing Outcomes", [
+				(self.testing_correct, PROGRESS_CHAR, "\033[32m", "OK"),
+				(self.testing_inconclusive, PROGRESS_CHAR, "\033[33m", "??"),
+				(self.testing_incorrect, PROGRESS_CHAR, "\033[31m", "WA")
+			], self.testing_tests, width)
 
 			print()
 			print("Testing Error: {0:.6f}".format(self.testing_error))
-			print("Testing Failures:", self.testing_incorrect_sum)
-			print("Testing Labels:", self.testing_incorrect_labels_sum)
+			print()
+
+			for (classname, [correct, inconclusive, incorrect]) in iteritems(self.testing_by_category):
+				self.progress(classname, [
+					(correct, PROGRESS_CHAR, "\033[32m", "OK"),
+					(inconclusive, PROGRESS_CHAR, "\033[33m", "??"),
+					(incorrect, PROGRESS_CHAR, "\033[31m", "WA")
+				], correct + inconclusive + incorrect, width)
+
+			print()
+
 
 
 		self.timer = Timer(SCREEN_UPDATE_RATE, self.print)
 		self.timer.start()
+
+	def progress(self, title, parts, total, width):
+		total_len = len(str(total))
+
+		label = " / ".join([("{0:" + str(total_len) + "d}" + (" {1}" if name is not None else "")).format(size, name) for size, c, color, name in parts])
+		print(title, end="")
+		print(" " * (width - len(title) - len(label)), end="")
+		print(label)
+
+		remaining = width
+
+		for size, c, color, name in parts[:-1]:
+			section_width = int(1.0 * width * size / total)
+			remaining -= section_width
+			print(color, end="")
+			print(c * section_width, end="")
+			print("\033[0m", end="")
+
+		_, c, color, __ = parts[-1]
+		print(color, end="")
+		print(c * remaining, end="")
+		print("\033[0m")
 
 	def stop(self):
 		self.timer.cancel()

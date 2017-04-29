@@ -51,19 +51,19 @@ elif args.command == "train":
 	signal.signal(signal.SIGINT, sigint_handler)
 
 	print("Loading data...")
-	training_data, training_labels, testing_data, testing_labels = load_data()
+	tr_X, tr_Y, tr_Z, ts_X, ts_Y, ts_Z = load_data()
 	print("Done.")
 
 	net.print()
 
 	if args.testfirst:
-		net.test(testing_data, testing_labels)
+		net.test(ts_X, ts_Y, ts_Z)
 
 	training_round = 0
 
 	while training_round == 0 or args.loop:
-		net.train(training_data, training_labels, args.iterations)
-		testing_error = net.test(testing_data, testing_labels)
+		net.train(tr_X, tr_Y, tr_Z)
+		testing_error = net.test(ts_X, ts_Y, ts_Z)
 		training_round += 1
 
 	net.stop()

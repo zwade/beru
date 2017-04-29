@@ -21,7 +21,10 @@ def load_data():
 	out_tr, inp_tr = sample.unzip(inputs_tr)
 	out_ts, inp_ts = sample.unzip(inputs_ts)
 
+	class_tr = out_tr
+	class_ts = out_ts
+
 	out_tr = [np.zeros((1, len(names))) if n == "noise" else singleton(names.index(n), len(names)) for n in out_tr]
 	out_ts = [np.zeros((1, len(names))) if n == "noise" else singleton(names.index(n), len(names)) for n in out_ts]
 
-	return inp_tr, out_tr, inp_ts, out_ts
+	return inp_tr, out_tr, class_tr, inp_ts, out_ts, class_ts
