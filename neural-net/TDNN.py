@@ -127,13 +127,15 @@ class TDNN:
 				case_concluded = True
 				case_correct = True
 
-				for j in range(len(label)):
+				for j in range(label.size):
 					if NON_SELECTION_THRESHOLD < label[0, j] < SELECTION_THRESHOLD:
 						case_concluded = False
 					elif label[0, j] <= NON_SELECTION_THRESHOLD and Y[i][0, j] == 1:
 						case_correct = False
 					elif label[0, j] >= SELECTION_THRESHOLD and Y[i][0, j] == 0:
 						case_correct = False
+
+				# print(label, Y[i], case_correct, case_concluded)
 
 				if case_concluded and case_correct:
 					correct += 1
@@ -173,7 +175,7 @@ class TDNN:
 			case_concluded = True
 			case_correct = True
 
-			for j in range(len(label)):
+			for j in range(label.size):
 				if NON_SELECTION_THRESHOLD < label[0, j] < SELECTION_THRESHOLD:
 					case_concluded = False
 				elif label[0, j] <= NON_SELECTION_THRESHOLD and Y[i][0, j] == 1:
