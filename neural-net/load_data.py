@@ -3,11 +3,9 @@ import numpy as np
 import random
 import sample
 
-NUM_FQS  = 32
-#NUM_TIME = 8
-#TIME_LEN = 0.25
-NUM_TIME = 1
-TIME_LEN = 2
+NUM_FQS  = 256
+NUM_TIME = 8
+TIME_LEN = 0.25
 
 def singleton(idx, length):
 	return np.matrix([[1 if i == idx else 0 for i in range(length)]])
@@ -19,7 +17,6 @@ def load_data():
 	inputs_ts = [(n, e[:NUM_FQS*NUM_TIME]) for (n, (f, data)) in iteritems(samples['test']) for e in data]
 
 	names = [n for (n, d) in iteritems(samples['training']) if n != "noise"]
-	print names
 
 	out_tr, inp_tr = sample.unzip(inputs_tr)
 	out_ts, inp_ts = sample.unzip(inputs_ts)
@@ -27,5 +24,4 @@ def load_data():
 	out_tr = [np.zeros((1, len(names))) if n == "noise" else singleton(names.index(n), len(names)) for n in out_tr]
 	out_ts = [np.zeros((1, len(names))) if n == "noise" else singleton(names.index(n), len(names)) for n in out_ts]
 
-	print out_ts
 	return inp_tr, out_tr, inp_ts, out_ts

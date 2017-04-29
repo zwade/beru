@@ -150,4 +150,3 @@ def get_all_samples(points = 1024, bucket_len = 0.5):
 
 if __name__ == "__main__":
 	sample = Sample.from_file(dir_path + "/data/x-pad/0.wav")
-	print sample.get_data(10)
