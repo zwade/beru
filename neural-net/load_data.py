@@ -16,6 +16,9 @@ def load_data():
 	inputs_tr = [(n, e[:NUM_FQS*NUM_TIME]) for (n, (f, data)) in iteritems(samples['training']) for e in data]
 	inputs_ts = [(n, e[:NUM_FQS*NUM_TIME]) for (n, (f, data)) in iteritems(samples['test']) for e in data]
 
+	random.shuffle(inputs_tr)
+	random.shuffle(inputs_ts)
+
 	names = [n for (n, d) in iteritems(samples['training']) if n != "noise"]
 
 	out_tr, inp_tr = sample.unzip(inputs_tr)
