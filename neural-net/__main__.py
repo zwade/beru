@@ -62,7 +62,7 @@ elif args.command == "train":
 	training_round = 0
 
 	while training_round == 0 or args.loop:
-		net.train(tr_X, tr_Y, tr_Z)
+		net.train(tr_X, tr_Y, tr_Z, args.iterations)
 		testing_error = net.test(ts_X, ts_Y, ts_Z)
 		training_round += 1
 

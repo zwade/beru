@@ -25,15 +25,11 @@ class TDNN:
 		self.total_steps = 1
 		self.current_step = 1
 		self.error = 0
-		self.correct = 0
-		self.inconclusive = 0
-		self.incorrect = 0
+		self.outcomes = [0, 0, 0, 0, 0]
 		self.tests = 0
 		self.by_category = None
 		self.testing_error = 0
-		self.testing_correct = 0
-		self.testing_inconclusive = 0
-		self.testing_incorrect = 0
+		self.testing_outcomes = [0, 0, 0, 0, 0]
 		self.testing_tests = 0
 		self.testing_total_steps = 1
 		self.testing_current_step = 1
@@ -109,9 +105,7 @@ class TDNN:
 
 		for t in range(iterations):
 			error = 0
-			correct = 0
-			inconclusive = 0
-			incorrect = 0
+			outcomes = [0, 0, 0, 0, 0]
 			tests = 0
 			by_category = dict()
 
@@ -128,8 +122,11 @@ class TDNN:
 
 				case_concluded = True
 				case_correct = True
+				arg_max = 0
 
 				for j in range(label.size):
+					if label[0, arg_max] < label[0, j]:
+						arg_max = j
 					if NON_SELECTION_THRESHOLD < label[0, j] < SELECTION_THRESHOLD:
 						case_concluded = False
 					elif label[0, j] <= NON_SELECTION_THRESHOLD and Y[i][0, j] == 1:
@@ -140,34 +137,38 @@ class TDNN:
 				# print(label, Y[i], case_correct, case_concluded)
 
 				if Z[i] not in by_category:
-					by_category[Z[i]] = [0, 0, 0]
+					by_category[Z[i]] = [0, 0, 0, 0, 0]
 
 				if case_concluded and case_correct:
-					correct += 1
+					outcomes[0] += 1
 					by_category[Z[i]][0] += 1
 				elif not case_concluded:
-					inconclusive += 1
-					by_category[Z[i]][1] += 1
+					if Y[i][0, arg_max] == 1:
+						outcomes[1] += 1
+						by_category[Z[i]][1] += 1
+					else:
+						outcomes[2] += 1
+						by_category[Z[i]][2] += 1
 				else:
-					incorrect += 1
-					by_category[Z[i]][2] += 1
+					if Y[i][0, arg_max] == 1:
+						outcomes[3] += 1
+						by_category[Z[i]][3] += 1
+					else:
+						outcomes[4] += 1
+						by_category[Z[i]][4] += 1
 
 				tests += 1
 				self.back_propagate(Y[i])
 
 			self.error = error
-			self.correct = correct
-			self.inconclusive = inconclusive
-			self.incorrect = incorrect
+			self.outcomes = outcomes
 			self.tests = tests
 			self.by_category = by_category
 
 	def test(self, X, Y, Z):
 		self.testing = True
 		error = 0
-		correct = 0
-		inconclusive = 0
-		incorrect = 0
+		outcomes = [0, 0, 0, 0, 0]
 		tests = 0
 		by_category = dict()
 
@@ -185,8 +186,12 @@ class TDNN:
 
 			case_concluded = True
 			case_correct = True
+			arg_max = 0
 
 			for j in range(label.size):
+				if label[0, arg_max] < label[0, j]:
+					arg_max = j
+
 				if NON_SELECTION_THRESHOLD < label[0, j] < SELECTION_THRESHOLD:
 					case_concluded = False
 				elif label[0, j] <= NON_SELECTION_THRESHOLD and Y[i][0, j] == 1:
@@ -195,25 +200,31 @@ class TDNN:
 					case_correct = False
 
 			if Z[i] not in by_category:
-				by_category[Z[i]] = [0, 0, 0]
+				by_category[Z[i]] = [0, 0, 0, 0, 0]
 
 			if case_concluded and case_correct:
-				correct += 1
+				outcomes[0] += 1
 				by_category[Z[i]][0] += 1
 			elif not case_concluded:
-				inconclusive += 1
-				by_category[Z[i]][1] += 1
+				if Y[i][0, arg_max] == 1:
+					outcomes[1] += 1
+					by_category[Z[i]][1] += 1
+				else:
+					outcomes[2] += 1
+					by_category[Z[i]][2] += 1
 			else:
-				incorrect += 1
-				by_category[Z[i]][2] += 1
+				if Y[i][0, arg_max] == 1:
+					outcomes[3] += 1
+					by_category[Z[i]][3] += 1
+				else:
+					outcomes[4] += 1
+					by_category[Z[i]][4] += 1
 
 			tests += 1
 			self.back_propagate(Y[i])
 
 		self.testing_error = error
-		self.testing_correct = correct
-		self.testing_inconclusive = inconclusive
-		self.testing_incorrect = incorrect
+		self.testing_outcomes = outcomes
 		self.testing_tests = tests
 		self.testing_by_category = by_category
 
@@ -225,16 +236,20 @@ class TDNN:
 		return np.insert(v, v.size, 1)
 
 	def print(self):
-		#print("\033[2J\033[3J\033[;H\033[0m", end="")
+		print("\033[2J\033[3J\033[;H\033[0m", end="")
 		rows, columns = subprocess.check_output(['stty', 'size']).decode().split()
 		width = int(columns)
 		print()
 
 		if self.testing:
+			print()
+			print()
+			print() 
 			self.progress("Testing Cases", [
 				(self.testing_current_step, PROGRESS_CHAR, "\033[34m", None),
 				(self.testing_total_steps, NON_PROGRESS_CHAR, "\033[0;37m", None)
 			], self.testing_total_steps, width)
+			print()
 		else:
 			self.progress("Training Iterations", [
 				(self.current_iteration, PROGRESS_CHAR, "\033[34m", None),
@@ -250,49 +265,57 @@ class TDNN:
 
 			print()
 
-			if self.tests > 0:
-				self.progress("Training Outcomes", [
-					(self.correct, PROGRESS_CHAR, "\033[32m", "OK"),
-					(self.inconclusive, PROGRESS_CHAR, "\033[33m", "??"),
-					(self.incorrect, PROGRESS_CHAR, "\033[31m", "WA")
-				], self.tests, width)
+		if self.tests > 0:
+			self.progress("Training Outcomes", [
+				(self.outcomes[0], PROGRESS_CHAR, "\033[32m", "OK"),
+				(self.outcomes[1], PROGRESS_CHAR, "\033[36m", "AL"),
+				(self.outcomes[2], PROGRESS_CHAR, "\033[33m", "IN"),
+				(self.outcomes[3], PROGRESS_CHAR, "\033[35m", "ST"),
+				(self.outcomes[4], PROGRESS_CHAR, "\033[31m", "WA")
+			], self.tests, width)
 
-				print()
-				print("Training Error: {0:.6f}".format(self.error))
+			print()
+			print("Training Error: {0:.6f}".format(self.error))
 
-				print()
+			print()
 
-				for (classname, [correct, inconclusive, incorrect]) in iteritems(self.by_category):
-					self.progress(classname, [
-						(correct, PROGRESS_CHAR, "\033[32m", "OK"),
-						(inconclusive, PROGRESS_CHAR, "\033[33m", "??"),
-						(incorrect, PROGRESS_CHAR, "\033[31m", "WA")
-					], correct + inconclusive + incorrect, width)
+			for (classname, outcomes) in iteritems(self.by_category):
+				self.progress(classname, [
+					(outcomes[0], PROGRESS_CHAR, "\033[32m", "OK"),
+					(outcomes[1], PROGRESS_CHAR, "\033[36m", "AL"),
+					(outcomes[2], PROGRESS_CHAR, "\033[33m", "IN"),
+					(outcomes[3], PROGRESS_CHAR, "\033[35m", "ST"),
+					(outcomes[4], PROGRESS_CHAR, "\033[31m", "WA")
+				], sum(outcomes), width)
 
-				print()
-			else:
-				print("Training Outcomes", " " * (width - 28), "[no data]")
-				print(PROGRESS_CHAR * width)
+			print()
+		else:
+			print("Training Outcomes", " " * (width - 28), "[no data]")
+			print(PROGRESS_CHAR * width)
 
 		print()
 
 		if self.testing_tests > 0:
 			self.progress("Testing Outcomes", [
-				(self.testing_correct, PROGRESS_CHAR, "\033[32m", "OK"),
-				(self.testing_inconclusive, PROGRESS_CHAR, "\033[33m", "??"),
-				(self.testing_incorrect, PROGRESS_CHAR, "\033[31m", "WA")
+				(self.testing_outcomes[0], PROGRESS_CHAR, "\033[32m", "OK"),
+				(self.testing_outcomes[1], PROGRESS_CHAR, "\033[36m", "AL"),
+				(self.testing_outcomes[2], PROGRESS_CHAR, "\033[33m", "IN"),
+				(self.testing_outcomes[3], PROGRESS_CHAR, "\033[35m", "ST"),
+				(self.testing_outcomes[4], PROGRESS_CHAR, "\033[31m", "WA")
 			], self.testing_tests, width)
 
 			print()
 			print("Testing Error: {0:.6f}".format(self.testing_error))
 			print()
 
-			for (classname, [correct, inconclusive, incorrect]) in iteritems(self.testing_by_category):
+			for (classname, outcomes) in iteritems(self.testing_by_category):
 				self.progress(classname, [
-					(correct, PROGRESS_CHAR, "\033[32m", "OK"),
-					(inconclusive, PROGRESS_CHAR, "\033[33m", "??"),
-					(incorrect, PROGRESS_CHAR, "\033[31m", "WA")
-				], correct + inconclusive + incorrect, width)
+					(outcomes[0], PROGRESS_CHAR, "\033[32m", "OK"),
+					(outcomes[1], PROGRESS_CHAR, "\033[36m", "AL"),
+					(outcomes[2], PROGRESS_CHAR, "\033[33m", "IN"),
+					(outcomes[3], PROGRESS_CHAR, "\033[35m", "ST"),
+					(outcomes[4], PROGRESS_CHAR, "\033[31m", "WA")
+				], sum(outcomes), width)
 
 			print()
 
