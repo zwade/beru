@@ -97,9 +97,11 @@ class Sample:
 	def get_data(self, points = 1024):
 		fqs, dft = self.get_frequency_data()
 		cutoff = np.searchsorted(fqs, BASE_CUTOFF)
+		end = np.searchsorted(fqs, 20000)
+		diff = fqs[1]-fqs[0]
 		
 		if type(points) == int:
-			INTVL = min(len(dft)-cutoff, 20000)/(points+1)
+			INTVL = min((len(dft)-cutoff) * diff, end)/(points+1)
 			points = [BASE_CUTOFF + INTVL * i for i in range(points)]
 
 		idxs = np.searchsorted(fqs, points)
