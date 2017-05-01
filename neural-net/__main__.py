@@ -33,6 +33,8 @@ train.add_argument("--iterations", "-i", type = int, help = "The number of train
 train.add_argument("--loop", "-l", action = "store_true", help = "Train in a loop, running test data after each round of training")
 train.add_argument("--rate", "-r", type = float, help = "TDNN learning rate", default = 0.1)
 train.add_argument("--testfirst", "-t", action = "store_true", help = "Start with a round of testing")
+train.add_argument("--fraction", "-f", type = int, help = "What proportion of the input data is used for training", default = 1)
+
 
 args = parser.parse_args()
 
@@ -51,7 +53,7 @@ elif args.command == "train":
 	signal.signal(signal.SIGINT, sigint_handler)
 
 	print("Loading data...")
-	tr_X, tr_Y, tr_Z, ts_X, ts_Y, ts_Z = load_data()
+	tr_X, tr_Y, tr_Z, ts_X, ts_Y, ts_Z = load_data(args.fraction)
 	print("Done.")
 
 	net.print()
@@ -62,7 +64,7 @@ elif args.command == "train":
 	training_round = 0
 
 	while training_round == 0 or args.loop:
-		net.train(tr_X, tr_Y, tr_Z)
+		net.train(tr_X, tr_Y, tr_Z, args.iterations)
 		testing_error = net.test(ts_X, ts_Y, ts_Z)
 		training_round += 1
 
