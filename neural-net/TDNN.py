@@ -8,12 +8,14 @@ import sys
 from threading import Timer
 import subprocess
 from six import iteritems
+from time import gmtime, strftime
 
 SELECTION_THRESHOLD = .2
 NON_SELECTION_THRESHOLD = .1
 SCREEN_UPDATE_RATE = .2
 PROGRESS_CHAR = u"\u2593"
 NON_PROGRESS_CHAR = u"\u2591"
+SAVE_RATE = 300
 
 class TDNN:
 	def __init__(self, input_file = None, layers = None, learning_rate = 0.1):
@@ -43,6 +45,7 @@ class TDNN:
 			parts = [archive[file] for file in sorted(archive.files)]
 			self.layers = parts[0]
 			self.matrices = parts[1:]
+			print(self.layers, self.matrices)
 			print("\033[36m....Done.\033[0m")
 		elif layers is not None:
 			print("\033[36mGenerating new weights for layers", layers, "...  \033[0m", end="")
@@ -53,6 +56,7 @@ class TDNN:
 			raise Error("\033[31minput_file or layers must be specified\033[0m")
 
 		self.learning_rate = learning_rate
+		Timer(SAVE_RATE, self.periodic_save).start()
 
 	def forward_propagate(self, inp):
 		values = np.matrix(inp)
@@ -61,7 +65,7 @@ class TDNN:
 		for i in range(len(self.layers) - 1):
 			M = self.matrices[i]
 			sample_width = self.layers[i, 1] - self.layers[i+1, 1] + 1
-			groups = [self.sigmoid(self.append_one(values[0, j * self.layers[i, 0] : (j + sample_width) * self.layers[i, 0]]) * M) for j in range(self.layers[i+1][1])]
+			groups = [self.sigmoid(self.append_one(values[0, j * self.layers[i, 0] : (j + sample_width) * self.layers[i, 0]]) * M) for j in range(self.layers[i+1, 1])]
 			values = np.concatenate(groups, axis=1)
 			self.last.append(values)
 
@@ -221,7 +225,6 @@ class TDNN:
 					by_category[Z[i]][4] += 1
 
 			tests += 1
-			self.back_propagate(Y[i])
 
 		self.testing_error = error
 		self.testing_outcomes = outcomes
@@ -231,7 +234,13 @@ class TDNN:
 	def save(self, output_file):
 		print("\033[36mSaving weights to", output_file, "...  \033[30m", end="")
 		np.savez(output_file, self.layers, *self.matrices)
+		print(self.layers, self.matrices)
 		print("\033[36m...Done.\033[30m")
+
+	def periodic_save(self):
+		np.savez(strftime("neural-net/nets/%Y%m%d%H%M%S.npz", gmtime()), self.layers, *self.matrices)
+		Timer(SAVE_RATE, self.periodic_save).start()
+
 	def append_one(self, v):
 		return np.insert(v, v.size, 1)
 

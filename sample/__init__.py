@@ -79,7 +79,7 @@ class Sample:
 		data = np.abs(self.data)
 		dft = np.fft.fft(data)[:len(data)//2]
 		dft = np.abs(dft)
-		dft = np.vectorize(math.log)(dft)
+		dft = np.vectorize(lambda x: math.log(x + 1))(dft)
 		dft = sliding_window(dft, 5, max)
 		fqs = fftpack.fftfreq(len(data),float(1)/self.RATE)[:len(data)//2]
 		
@@ -94,24 +94,14 @@ class Sample:
 		return (fqs, dft)
 
 
-	def get_data(self, points = 1024):
+	def get_data(self, buckets = 1024):
 		fqs, dft = self.get_frequency_data()
-		cutoff = np.searchsorted(fqs, BASE_CUTOFF)
+		start = np.searchsorted(fqs, BASE_CUTOFF)
 		end = np.searchsorted(fqs, 20000)
-		diff = fqs[1]-fqs[0]
-		
-		if type(points) == int:
-			INTVL = min((len(dft)-cutoff) * diff, end)/(points+1)
-			points = [BASE_CUTOFF + INTVL * i for i in range(points)]
-
-		idxs = np.searchsorted(fqs, points)
-		results = [(inline_avg(dft, i), j) 
-				if i < len(dft) else (0,j) for (i,j) in zip(idxs, points)]
-		results = filter(lambda x: x is not None, results)
-
-		amps, frqs = unzip(results)
-
-		return frqs, amps
+		data = np.array(dft[start:end])
+		data = np.array_split(data, buckets)
+		data = [np.sum(np.multiply(np.hamming(b.size), b)) for b in data]
+		return data
 
 	def time_divide_samples(self, points = 1024, size = 0.5):
 		size = float(size)
@@ -125,28 +115,31 @@ class Sample:
 
 		return data
 
-def get_all_in_path(p, points = 1024, bucket_len = 0.5):
+def get_all_in_path(p, points = 1024, bucket_len = 0.5, fraction = 1):
 	samples = {}
-	for path in glob.glob(p):
+	for path in sorted(glob.glob(p))[::fraction]:
 		elements = path.split("/")
 		sample_name = elements[-2]
 		sample = Sample.from_file(path)
-		current = []
-		for s in sample.time_divide_samples(points, bucket_len):
-			frqs, amps = s.get_data(points)
-			current = current + amps
+		current = np.array([])
 
-		highest = max(current)
-		lowest  = min(current)
-		current = [(i - lowest) / (float(highest) - float(lowest)) for i in current]
+		for s in sample.time_divide_samples(points, bucket_len):
+			amps = s.get_data(points)
+			current = np.concatenate([current, amps])
+
+		average = np.average(current)
+		current = current - average
+		scale = np.max(np.absolute(current))
+		current = current / scale
+
 		if sample_name not in samples:
-			samples[sample_name] = (frqs, [])
+			samples[sample_name] = ([], [])
 		samples[sample_name][1].append(current)
 	return samples
 
-def get_all_samples(points = 1024, bucket_len = 0.5):
+def get_all_samples(points = 1024, bucket_len = 0.5, fraction = 1):
 	return {
-		'training': get_all_in_path(dir_path + "/data/*/*.wav",  points, bucket_len),
+		'training': get_all_in_path(dir_path + "/data/*/*.wav",  points, bucket_len, fraction),
 		'test': get_all_in_path(dir_path + "/test/data/*/*.wav", points, bucket_len)
 	}
 
