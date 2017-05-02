@@ -8,6 +8,11 @@ import signal
 import sys
 from TDNN import TDNN
 from load_data import load_data
+import pyaudio
+from array import array
+import math
+from scipy import fftpack
+import subprocess
 
 import os 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -35,6 +40,14 @@ train.add_argument("--rate", "-r", type = float, help = "TDNN learning rate", de
 train.add_argument("--testfirst", "-t", action = "store_true", help = "Start with a round of testing")
 train.add_argument("--fraction", "-f", type = int, help = "What proportion of the input data is used for training", default = 1)
 
+expand = subparsers.add_parser("expand")
+expand.add_argument("input_file", metavar = "infile", help = "Weights file from which to load")
+expand.add_argument("output_file", metavar = "outfile", help = "Weights file to which to store")
+expand.add_argument("layer", type = int, help = "Which layer to expand")
+expand.add_argument("amount", type = int, help = "How much to expand the layer by")
+
+classify = subparsers.add_parser("classify")
+classify.add_argument("input_file", metavar = "infile", help = "Weights file from which to load")
 
 args = parser.parse_args()
 
@@ -53,8 +66,10 @@ elif args.command == "train":
 	signal.signal(signal.SIGINT, sigint_handler)
 
 	print("Loading data...")
-	tr_X, tr_Y, tr_Z, ts_X, ts_Y, ts_Z = load_data(args.fraction)
+	tr_X, tr_Y, tr_Z, ts_X, ts_Y, ts_Z, class_names = load_data(args.fraction)
 	print("Done.")
+
+	net.class_names = class_names
 
 	net.print()
 
@@ -72,3 +87,124 @@ elif args.command == "train":
 
 	print("Training completed.  Saving net...")
 	net.save(dir_path + "/nets/" + args.output_file + ".npz")
+elif args.command == "expand":
+	input_file = dir_path + "/nets/" + args.input_file + ".npz"
+	archive = np.load(input_file)
+	parts = [archive[file] for file in sorted(archive.files)]
+	
+	layers = parts[0]
+	matrices = parts[1:]
+	layers[args.layer, 0] += args.amount
+
+	if args.layer > 0:
+		to_concat = np.random.rand(matrices[args.layer - 1].shape[0], args.amount) / 10 - 0.05
+		matrices[args.layer - 1] = np.concatenate([matrices[args.layer - 1], to_concat], 1)
+
+	if args.layer < layers.shape[0] - 1:
+		parts = layers[args.layer, 1] - layers[args.layer + 1, 1] + 1
+		last_row = np.matrix(matrices[args.layer][-1,:])
+		matrix = matrices[args.layer][:-1,:]
+		splits = np.split(matrix, parts)
+		splits = [np.concatenate([part, np.random.rand(args.amount, matrix.shape[1]) / 10 - 0.05]) for part in splits]
+		matrices[args.layer] = np.concatenate([np.concatenate(splits), last_row])
+
+	np.savez(dir_path + "/nets/" + args.output_file + ".npz", layers, *matrices)
+elif args.command == "classify":
+	FORMAT = pyaudio.paInt16
+	BASE_CUTOFF = 3000
+	RATE   = 44100
+	NUM_FQS = 48
+	NUM_TIME = 20
+	NUM_OUTS = 10
+	CHUNK  = 2 * RATE // NUM_TIME
+	GESTURES = ["o-cw-right", "x-right", "down-right", "s-right"]
+	PROGRESS_CHAR = u"\u2593"
+
+	def sliding_window(array, size, fn):
+		return [fn(array[max(0, i-size):min(len(array)-1, i+size)]) for i in range(len(array))]
+
+	def process_data(data):
+		data = np.abs(data)
+		dft = np.fft.fft(data)[:len(data)//2]
+		dft = np.abs(dft)
+		dft = np.vectorize(lambda x: math.log(x + 1))(dft)
+		dft = sliding_window(dft, 5, max)
+		fqs = fftpack.fftfreq(len(data),float(1)/RATE)[:len(data)//2]
+
+		return fqs, dft
+
+	def get_data(data):
+		fqs, dft = process_data(data)
+		start = np.searchsorted(fqs, BASE_CUTOFF)
+		end = np.searchsorted(fqs, 20000)
+		data = np.array(dft[start:end])
+		data = np.array_split(data, NUM_FQS)
+		data = [np.sum(np.multiply(np.hamming(b.size), b)) for b in data]
+		return data
+
+
+	def progress(title, parts, total, width):
+		total_len = len(str(total))
+
+		label = " / ".join([("{0:4f}" + (" {1}" if name is not None else "")).format(size, name) for size, c, color, name in parts])
+		print(title, end="")
+		print(" " * (width - len(title) - len(label)), end="")
+		print(label)
+
+		remaining = width
+
+		for size, c, color, name in parts[:-1]:
+			section_width = int(1.0 * width * size / total)
+			remaining -= section_width
+			print(color, end="")
+			print(c * section_width, end="")
+			print("\033[0m", end="")
+
+		_, c, color, __ = parts[-1]
+		print(color, end="")
+		print(c * remaining, end="")
+		print("\033[0m")
+
+	dir_path = os.path.dirname(os.path.realpath(__file__))
+
+	audio_inst = pyaudio.PyAudio()
+	stream = audio_inst.open(format=FORMAT, channels=1, rate=RATE, input=True, output=True, frames_per_buffer=CHUNK)
+	net = TDNN(input_file = dir_path + "/nets/" + args.input_file + ".npz", learning_rate = 0)
+
+	windows = []
+	outs = []
+
+	while True:
+		data = np.array(array("h", stream.read(CHUNK, exception_on_overflow = False)))
+		data = get_data(data)
+		windows.append(data)
+
+		if len(windows) < NUM_TIME:
+			continue
+		elif len(windows) > NUM_TIME:
+			windows = windows[1:]
+
+		current = np.concatenate(windows)
+		average = np.average(current)
+		current = current - average
+		scale = np.max(np.absolute(current))
+		current = current / scale
+
+		# print(current[0,:10])
+
+		out = net.forward_propagate(current)
+		outs.append(out)
+
+		if len(outs) > NUM_OUTS:
+			outs = outs[1:]
+
+		final = np.average(outs, 0)
+
+		print("\033[2J\033[3J\033[;H\033[0m", end="")
+		rows, columns = subprocess.check_output(['stty', 'size']).decode().split()
+		width = int(columns)
+
+		for i in range(len(GESTURES)):
+			progress(GESTURES[i], [(final[0, i], PROGRESS_CHAR, "\033[35m", None), (1 - final[0, i], " ", "", None)], 1, width)
+
+		print(average, scale)

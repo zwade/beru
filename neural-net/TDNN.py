@@ -10,9 +10,9 @@ import subprocess
 from six import iteritems
 from time import gmtime, strftime
 
-SELECTION_THRESHOLD = .2
-NON_SELECTION_THRESHOLD = .1
-SCREEN_UPDATE_RATE = .2
+SELECTION_THRESHOLD = .4
+NON_SELECTION_THRESHOLD = .2
+SCREEN_UPDATE_RATE = 1
 PROGRESS_CHAR = u"\u2593"
 NON_PROGRESS_CHAR = u"\u2591"
 SAVE_RATE = 300
@@ -28,6 +28,7 @@ class TDNN:
 		self.current_step = 1
 		self.error = 0
 		self.outcomes = [0, 0, 0, 0, 0]
+		self.confusion = None
 		self.tests = 0
 		self.by_category = None
 		self.testing_error = 0
@@ -36,8 +37,10 @@ class TDNN:
 		self.testing_total_steps = 1
 		self.testing_current_step = 1
 		self.testing_by_category = None
+		self.testing_confusion = None
 		self.testing = False
 		self.timer = None
+		self.class_names = []
 
 		if input_file is not None:
 			print("\033[36mLoading weights from file...  \033[0m", end="")
@@ -111,6 +114,7 @@ class TDNN:
 			error = 0
 			outcomes = [0, 0, 0, 0, 0]
 			tests = 0
+			confusion = np.zeros((Y[0].size + 1, Y[0].size + 1))
 			by_category = dict()
 
 			self.current_iteration = t
@@ -140,6 +144,10 @@ class TDNN:
 
 				# print(label, Y[i], case_correct, case_concluded)
 
+				x = Y[0].size if np.max(Y[i]) == 0 else np.argmax(Y[i])
+				y = Y[0].size if np.max(label) < NON_SELECTION_THRESHOLD else np.argmax(label)
+				confusion[x, y] += 1
+
 				if Z[i] not in by_category:
 					by_category[Z[i]] = [0, 0, 0, 0, 0]
 
@@ -168,11 +176,13 @@ class TDNN:
 			self.outcomes = outcomes
 			self.tests = tests
 			self.by_category = by_category
+			self.confusion = confusion
 
 	def test(self, X, Y, Z):
 		self.testing = True
 		error = 0
 		outcomes = [0, 0, 0, 0, 0]
+		confusion = np.zeros((Y[0].size + 1, Y[0].size + 1))
 		tests = 0
 		by_category = dict()
 
@@ -203,6 +213,10 @@ class TDNN:
 				elif label[0, j] >= SELECTION_THRESHOLD and Y[i][0, j] == 0:
 					case_correct = False
 
+			x = Y[0].size if np.max(Y[i]) == 0 else np.argmax(Y[i])
+			y = Y[0].size if np.max(label) < NON_SELECTION_THRESHOLD else np.argmax(label)
+			confusion[x, y] += 1
+
 			if Z[i] not in by_category:
 				by_category[Z[i]] = [0, 0, 0, 0, 0]
 
@@ -230,6 +244,7 @@ class TDNN:
 		self.testing_outcomes = outcomes
 		self.testing_tests = tests
 		self.testing_by_category = by_category
+		self.testing_confusion = confusion
 
 	def save(self, output_file):
 		print("\033[36mSaving weights to", output_file, "...  \033[30m", end="")
@@ -288,15 +303,19 @@ class TDNN:
 
 			print()
 
-			for (classname, outcomes) in iteritems(self.by_category):
-				self.progress(classname, [
-					(outcomes[0], PROGRESS_CHAR, "\033[32m", "OK"),
-					(outcomes[1], PROGRESS_CHAR, "\033[36m", "AL"),
-					(outcomes[2], PROGRESS_CHAR, "\033[33m", "IN"),
-					(outcomes[3], PROGRESS_CHAR, "\033[35m", "ST"),
-					(outcomes[4], PROGRESS_CHAR, "\033[31m", "WA")
-				], sum(outcomes), width)
+			for class_name in self.class_names:
+				self.progress(class_name, [
+					(self.by_category[class_name][0], PROGRESS_CHAR, "\033[32m", "OK"),
+					(self.by_category[class_name][1], PROGRESS_CHAR, "\033[36m", "AL"),
+					(self.by_category[class_name][2], PROGRESS_CHAR, "\033[33m", "IN"),
+					(self.by_category[class_name][3], PROGRESS_CHAR, "\033[35m", "ST"),
+					(self.by_category[class_name][4], PROGRESS_CHAR, "\033[31m", "WA")
+				], sum(self.by_category[class_name]), width)
 
+			print()
+
+			print("Training Confusion:")
+			print(self.confusion)
 			print()
 		else:
 			print("Training Outcomes", " " * (width - 28), "[no data]")
@@ -317,15 +336,19 @@ class TDNN:
 			print("Testing Error: {0:.6f}".format(self.testing_error))
 			print()
 
-			for (classname, outcomes) in iteritems(self.testing_by_category):
-				self.progress(classname, [
-					(outcomes[0], PROGRESS_CHAR, "\033[32m", "OK"),
-					(outcomes[1], PROGRESS_CHAR, "\033[36m", "AL"),
-					(outcomes[2], PROGRESS_CHAR, "\033[33m", "IN"),
-					(outcomes[3], PROGRESS_CHAR, "\033[35m", "ST"),
-					(outcomes[4], PROGRESS_CHAR, "\033[31m", "WA")
-				], sum(outcomes), width)
+			for class_name in self.class_names:
+				self.progress(class_name, [
+					(self.testing_by_category[class_name][0], PROGRESS_CHAR, "\033[32m", "OK"),
+					(self.testing_by_category[class_name][1], PROGRESS_CHAR, "\033[36m", "AL"),
+					(self.testing_by_category[class_name][2], PROGRESS_CHAR, "\033[33m", "IN"),
+					(self.testing_by_category[class_name][3], PROGRESS_CHAR, "\033[35m", "ST"),
+					(self.testing_by_category[class_name][4], PROGRESS_CHAR, "\033[31m", "WA")
+				], sum(self.testing_by_category[class_name]), width)
 
+			print()
+
+			print("Testing Confusion:")
+			print(self.testing_confusion)
 			print()
 
 

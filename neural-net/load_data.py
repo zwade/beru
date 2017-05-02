@@ -3,10 +3,10 @@ import numpy as np
 import random
 import sample
 
-NUM_FQS  = 12
-NUM_TIME = 8
+NUM_FQS  = 48
+NUM_TIME = 20
 TIME_LEN = 2.0 / NUM_TIME
-GESTURES = ["double-tap-right", "down-right", "up-right", "o-cw-right", "s-right", "x-right"]
+GESTURES = ["o-cw-right", "x-right", "down-right", "s-right", "noise"]
 
 def singleton(idx, length):
 	return np.matrix([[1 if i == idx else 0 for i in range(length)]])
@@ -22,7 +22,7 @@ def load_data(fraction):
 
 	gesture_only = lambda n: "-".join(n.split("-")[:-1])
 
-	names = list(set([gesture_only(n) for n in GESTURES]))
+	names = [n for n in GESTURES if n != "noise"]
 	print(names)
 
 	out_tr, inp_tr = sample.unzip(inputs_tr)
@@ -31,7 +31,7 @@ def load_data(fraction):
 	class_tr = out_tr
 	class_ts = out_ts
 
-	out_tr = [np.zeros((1, len(names))) if n == "noise" else singleton(names.index(gesture_only(n)), len(names)) for n in out_tr]
-	out_ts = [np.zeros((1, len(names))) if n == "noise" else singleton(names.index(gesture_only(n)), len(names)) for n in out_ts]
+	out_tr = [np.zeros((1, len(names))) if n == "noise" else singleton(names.index(n), len(names)) for n in out_tr]
+	out_ts = [np.zeros((1, len(names))) if n == "noise" else singleton(names.index(n), len(names)) for n in out_ts]
 
-	return inp_tr, out_tr, class_tr, inp_ts, out_ts, class_ts
+	return inp_tr, out_tr, class_tr, inp_ts, out_ts, class_ts, GESTURES
