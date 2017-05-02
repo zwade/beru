@@ -6,7 +6,8 @@ import os
 from scipy import fftpack
 from array import array
 
-BASE_CUTOFF = 3000
+BASE_CUTOFF = 5000
+END_CUTOFF  = 40000
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -77,7 +78,7 @@ class Sample:
 			return self.fqs, self.dft
 
 		data = np.abs(self.data)
-		dft = np.fft.fft(data)[:len(data)//2]
+		dft = np.fft.fft(data, n=len(data))[:len(data)//2]
 		dft = np.abs(dft)
 		dft = np.vectorize(lambda x: math.log(x + 1))(dft)
 		dft = sliding_window(dft, 5, max)
@@ -97,7 +98,7 @@ class Sample:
 	def get_data(self, buckets = 1024):
 		fqs, dft = self.get_frequency_data()
 		start = np.searchsorted(fqs, BASE_CUTOFF)
-		end = np.searchsorted(fqs, 20000)
+		end = np.searchsorted(fqs, END_CUTOFF)
 		data = np.array(dft[start:end])
 		data = np.array_split(data, buckets)
 		data = [np.sum(np.multiply(np.hamming(b.size), b)) for b in data]
@@ -127,12 +128,10 @@ def get_all_in_path(p, points = 1024, bucket_len = 0.5, fraction = 1):
 			amps = s.get_data(points)
 			current = np.concatenate([current, amps])
 
-		"""
 		average = np.average(current)
 		current = current - average
 		scale = np.max(np.absolute(current))
 		current = current / scale
-		"""
 
 		if sample_name not in samples:
 			samples[sample_name] = ([], [])

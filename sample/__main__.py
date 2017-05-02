@@ -13,7 +13,7 @@ from array import array
 from builtins import input
 
 FORMAT = pyaudio.paInt16
-RATE   = 44100
+RATE   = 96000
 CHUNK  = 4096
 
 dir_path = os.path.dirname(os.path.realpath(__file__))

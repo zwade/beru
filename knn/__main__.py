@@ -8,34 +8,30 @@ from six.moves import reduce
 
 def classify(training, test, n = 5):
 	test = np.array(test)
-	vals = {}
+	vals = []
 	for label in training:
-		vals[label] = 0
-		for val in training[label][1]:
-			test_val = np.linalg.norm(np.array(val)-test)
-			vals[label] += test_val
-			print("  - [{}] Diff: {:1.4f}".format(label, test_val))
-		vals[label] /= len(training[label])
+		for l in training[label][1]:
+			test_val = np.linalg.norm(np.array(l)-test)
+			vals.append((test_val, label))
 
-	bestL = ""
-	bestV = 0 
-	(label, rank) = reduce(lambda x,y: x if (x[1] < y[1]) else y, iteritems(vals)) 
+	best = {}
+	for (v, l) in sorted(vals)[:n]:
+		print (v, l)
+		best[l] = 1 if l not in best else best[l] + 1
+
+	(label, rank) = reduce(lambda x,y: x if (x[1] > y[1]) else y, iteritems(best)) 
 	return label
 
 def prep_data():
-	data = sample.get_all_samples(128, )
+	data = sample.get_all_samples(512 )
 	training = data['training']
 	testing  = data['test']
-	#training = [("first", [.88,.1,.05]), ("first", [.90, .4, .3]), ("second", [.2,.7,.05]), ("second", [0.05,.95,0.1]), ("third", [0,.1, .8])]
-
-	#testing = [("first", [0.76, 0.3, 0.1]), ("second", [0,1,0]), ("third", [0,0,0.8])]
 
 	for label in testing:
+		print ("{}:".format(label))
 		for test in testing[label][1]:
-			print ("{}:".format(label))
-			best = classify(training, test)
+			best = classify(training, test, 4)
 			print ("    {} {}".format(label, best))
-			break
 	
 
 if __name__ == '__main__':
