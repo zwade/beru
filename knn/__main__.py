@@ -1,7 +1,9 @@
+from __future__ import print_function
 import sample
 
 import numpy as np
 from six import iteritems
+from six.moves import reduce
 
 
 def classify(training, test, n = 5):
@@ -11,13 +13,13 @@ def classify(training, test, n = 5):
 		vals[label] = 0
 		for val in training[label][1]:
 			test_val = np.linalg.norm(np.array(val)-test)
-			vals[label] += 1./test_val
+			vals[label] += test_val
+			print("  - [{}] Diff: {:1.4f}".format(label, test_val))
 		vals[label] /= len(training[label])
 
 	bestL = ""
 	bestV = 0 
-	print vals
-	(label, rank) = reduce(lambda x,y: x if (x[1] > y[1]) else y, iteritems(vals)) 
+	(label, rank) = reduce(lambda x,y: x if (x[1] < y[1]) else y, iteritems(vals)) 
 	return label
 
 def prep_data():
@@ -30,8 +32,10 @@ def prep_data():
 
 	for label in testing:
 		for test in testing[label][1]:
-			best = classify(training, test, 7)
-			print (label, best)
+			print ("{}:".format(label))
+			best = classify(training, test)
+			print ("    {} {}".format(label, best))
+			break
 	
 
 if __name__ == '__main__':

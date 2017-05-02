@@ -127,10 +127,12 @@ def get_all_in_path(p, points = 1024, bucket_len = 0.5, fraction = 1):
 			amps = s.get_data(points)
 			current = np.concatenate([current, amps])
 
+		"""
 		average = np.average(current)
 		current = current - average
 		scale = np.max(np.absolute(current))
 		current = current / scale
+		"""
 
 		if sample_name not in samples:
 			samples[sample_name] = ([], [])
