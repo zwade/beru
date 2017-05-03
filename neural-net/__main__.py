@@ -13,6 +13,7 @@ from array import array
 import math
 from scipy import fftpack
 import subprocess
+from time import time
 
 import os 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -111,11 +112,13 @@ elif args.command == "expand":
 	np.savez(dir_path + "/nets/" + args.output_file + ".npz", layers, *matrices)
 elif args.command == "classify":
 	FORMAT = pyaudio.paInt16
-	BASE_CUTOFF = 3000
-	RATE   = 44100
+	MIN_FREQ = 10000
+	MAX_FREQ = 40000
+	RATE   = 96000
 	NUM_FQS = 48
 	NUM_TIME = 20
-	NUM_OUTS = 10
+	TEST_RATE = 1
+	TIMEOUT = 16
 	CHUNK  = 2 * RATE // NUM_TIME
 	GESTURES = ["o-cw-right", "x-right", "down-right", "s-right"]
 	PROGRESS_CHAR = u"\u2593"
@@ -135,8 +138,8 @@ elif args.command == "classify":
 
 	def get_data(data):
 		fqs, dft = process_data(data)
-		start = np.searchsorted(fqs, BASE_CUTOFF)
-		end = np.searchsorted(fqs, 20000)
+		start = np.searchsorted(fqs, MIN_FREQ)
+		end = np.searchsorted(fqs, MAX_FREQ)
 		data = np.array(dft[start:end])
 		data = np.array_split(data, NUM_FQS)
 		data = [np.sum(np.multiply(np.hamming(b.size), b)) for b in data]
@@ -173,6 +176,8 @@ elif args.command == "classify":
 
 	windows = []
 	outs = []
+	cnt = 0
+	countdown = TIMEOUT
 
 	while True:
 		data = np.array(array("h", stream.read(CHUNK, exception_on_overflow = False)))
@@ -184,27 +189,47 @@ elif args.command == "classify":
 		elif len(windows) > NUM_TIME:
 			windows = windows[1:]
 
+		cnt += 1
+
+		if cnt % TEST_RATE != 0:
+			continue
+
 		current = np.concatenate(windows)
 		average = np.average(current)
 		current = current - average
 		scale = np.max(np.absolute(current))
 		current = current / scale
 
-		# print(current[0,:10])
+		# print(current)
 
 		out = net.forward_propagate(current)
+
+		# print(out)
 		outs.append(out)
 
-		if len(outs) > NUM_OUTS:
+		if len(outs) > TIMEOUT:
 			outs = outs[1:]
 
-		final = np.average(outs, 0)
+		final = np.max(outs, 0)
 
 		print("\033[2J\033[3J\033[;H\033[0m", end="")
 		rows, columns = subprocess.check_output(['stty', 'size']).decode().split()
 		width = int(columns)
 
 		for i in range(len(GESTURES)):
-			progress(GESTURES[i], [(final[0, i], PROGRESS_CHAR, "\033[35m", None), (1 - final[0, i], " ", "", None)], 1, width)
+			progress(GESTURES[i], [
+				(out[0, i], PROGRESS_CHAR, "\033[33m", None),
+				(final[0, i] - out[0, i], PROGRESS_CHAR, "\033[34m", None),
+				(1 - final[0, i], " ", "", None)
+			], 1, width)
+
+		# if np.max(final) > .5:
+		# 	countdown -= 1
+		# 	if countdown == 0:
+		# 		countdown = TIMEOUT
+		# 		selected = np.argmax(final)
+		# 		print()
+		# 		print("Accepted gesture:", GESTURES[selected])
+		# 		input("Press enter to continue")
 
 		print(average, scale)

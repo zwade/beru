@@ -12,7 +12,7 @@ def singleton(idx, length):
 	return np.matrix([[1 if i == idx else 0 for i in range(length)]])
 
 def load_data(fraction):
-	samples = sample.get_all_samples(NUM_FQS+1, TIME_LEN, fraction)
+	samples = sample.get_all_samples(NUM_FQS, NUM_TIME, fraction)
 
 	inputs_tr = [(n, e[:NUM_FQS*NUM_TIME]) for (n, (f, data)) in iteritems(samples['training']) if n in GESTURES for e in data]
 	inputs_ts = [(n, e[:NUM_FQS*NUM_TIME]) for (n, (f, data)) in iteritems(samples['test']) if n in GESTURES for e in data]

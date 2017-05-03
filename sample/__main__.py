@@ -11,20 +11,23 @@ import time
 from struct import pack
 from array import array
 from builtins import input
+from random import randint
 
 FORMAT = pyaudio.paInt16
-RATE   = 384000
+RATE   = 96000
 CHUNK  = 4096
+LENGTH = 2
+GESTURE_LENGTH = 1
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-colors = {"RED": "196", "BLUE": "21", "GREEN": "40", "ORANGE": "202"}
+colors = {"RED": "31", "BLUE": "34", "GREEN": "32", "ORANGE": "33"}
 def color(string, color):
 	if color in colors:
 		c = colors[color]
 	else:
 		c = 16
-	return "\033[38;5;{}m{}\033[0m".format(c, string)
+	return "\033[{}m{}\033[0m".format(c, string)
 
 def safe_int(string, default):
 	try:
@@ -68,31 +71,48 @@ while True:
 			pass
 	sys.stdout.write("Number to record (15): ")
 	num = safe_int(input(), 15)
-	sys.stdout.write("Length of recording (3): ")
-	length = safe_int(input(), 3)
 
 	print("Ready?" )
 	time.sleep(1)
-	sys.stdout.write(color("3...", "RED"))
+	sys.stdout.write(color("3... ", "RED"))
 	sys.stdout.flush()
 	time.sleep(1)
-	sys.stdout.write(color("2...", "RED"))
+	sys.stdout.write(color("2... ", "RED"))
 	sys.stdout.flush()
 	time.sleep(1)
-	sys.stdout.write(color("1...", "RED"))
+	sys.stdout.write(color("1... ", "RED"))
 	sys.stdout.flush()
 	time.sleep(1)
 	print()
 	for i in range(existing, existing+num):
-		print("Draw a(n) {}".format(color(name, "BLUE")))
-
 		r = array('h')
+		
+		print(color("Recording noise", "ORANGE"))
+
 		t = 0
-		while t < int(length * RATE):
+		while t < int((LENGTH - GESTURE_LENGTH) * RATE):
 			snd_data = array('h', stream.read(CHUNK, exception_on_overflow=False))
 			r.extend(snd_data)
 			t += len(snd_data)
 
+		print("Draw a(n) {}".format(color(name, "BLUE")))
+
+		t = 0
+		while t < int(GESTURE_LENGTH * RATE):
+			snd_data = array('h', stream.read(CHUNK, exception_on_overflow=False))
+			r.extend(snd_data)
+			t += len(snd_data)
+
+		print(color("Recording noise", "ORANGE"))
+
+		t = 0
+		while t < int((LENGTH - GESTURE_LENGTH) * RATE):
+			snd_data = array('h', stream.read(CHUNK, exception_on_overflow=False))
+			r.extend(snd_data)
+			t += len(snd_data)
+
+		start = randint(0, int((LENGTH - GESTURE_LENGTH) * RATE))
+		r = r[start : start + int(LENGTH * RATE)]
 		data = pack('<' + ('h'*len(r)), *r)
 		wav_file = wave.open(dir_path+"/data/{}/{}.wav".format(name, i), "wb")
 		wav_file.setnchannels(1)

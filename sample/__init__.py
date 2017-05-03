@@ -6,7 +6,8 @@ import os
 from scipy import fftpack
 from array import array
 
-BASE_CUTOFF = 3000
+MIN_FREQ = 10000
+MAX_FREQ = 40000
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -96,34 +97,29 @@ class Sample:
 
 	def get_data(self, buckets = 1024):
 		fqs, dft = self.get_frequency_data()
-		start = np.searchsorted(fqs, BASE_CUTOFF)
-		end = np.searchsorted(fqs, 20000)
+		start = np.searchsorted(fqs, MIN_FREQ)
+		end = np.searchsorted(fqs, MAX_FREQ)
 		data = np.array(dft[start:end])
 		data = np.array_split(data, buckets)
 		data = [np.sum(np.multiply(np.hamming(b.size), b)) for b in data]
 		return data
 
-	def time_divide_samples(self, points = 1024, size = 0.5):
-		size = float(size)
-
-		sample_len  = self.RATE*size
-		num_samples = int(math.ceil(self.FRAMES/sample_len))
-		data = [None for i in range(num_samples)]
-
-		for i in range(num_samples):
-			data[i] = Sample.from_data(self.data[int(i*sample_len):min(self.FRAMES, int((i+1)*sample_len))], self.RATE)
+	def time_divide_samples(self, points = 1024, num_windows = 10):
+		parts = np.array_split(self.data, num_windows)
+		data = [Sample.from_data(part, self.RATE) for part in parts]
 
 		return data
 
-def get_all_in_path(p, points = 1024, bucket_len = 0.5, fraction = 1):
+def get_all_in_path(p, points = 1024, num_windows = 10, fraction = 1):
 	samples = {}
 	for path in sorted(glob.glob(p))[::fraction]:
+		print("Loading", path)
 		elements = path.split("/")
 		sample_name = elements[-2]
 		sample = Sample.from_file(path)
 		current = np.array([])
 
-		for s in sample.time_divide_samples(points, bucket_len):
+		for s in sample.time_divide_samples(points, num_windows):
 			amps = s.get_data(points)
 			current = np.concatenate([current, amps])
 
@@ -132,15 +128,17 @@ def get_all_in_path(p, points = 1024, bucket_len = 0.5, fraction = 1):
 		scale = np.max(np.absolute(current))
 		current = current / scale
 
+		np.set_printoptions(threshold=np.inf)
+
 		if sample_name not in samples:
 			samples[sample_name] = ([], [])
 		samples[sample_name][1].append(current)
 	return samples
 
-def get_all_samples(points = 1024, bucket_len = 0.5, fraction = 1):
+def get_all_samples(points = 1024, num_windows = 10, fraction = 1):
 	return {
-		'training': get_all_in_path(dir_path + "/data/*/*.wav",  points, bucket_len, fraction),
-		'test': get_all_in_path(dir_path + "/test/data/*/*.wav", points, bucket_len)
+		'training': get_all_in_path(dir_path + "/data/*/*.wav",  points, num_windows, fraction),
+		'test': get_all_in_path(dir_path + "/test/data/*/*.wav", points, num_windows)
 	}
 
 if __name__ == "__main__":
