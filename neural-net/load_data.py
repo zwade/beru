@@ -3,7 +3,7 @@ import numpy as np
 import random
 import sample
 
-NUM_FQS  = 48
+NUM_FQS  = 80
 NUM_TIME = 20
 TIME_LEN = 2.0 / NUM_TIME
 GESTURES = ["o-cw-right", "x-right", "down-right", "s-right", "noise"]
@@ -14,8 +14,8 @@ def singleton(idx, length):
 def load_data(fraction):
 	samples = sample.get_all_samples(NUM_FQS, NUM_TIME, fraction)
 
-	inputs_tr = [(n, e[:NUM_FQS*NUM_TIME]) for (n, (f, data)) in iteritems(samples['training']) if n in GESTURES for e in data]
-	inputs_ts = [(n, e[:NUM_FQS*NUM_TIME]) for (n, (f, data)) in iteritems(samples['test']) if n in GESTURES for e in data]
+	inputs_tr = [(n, e[:NUM_FQS*NUM_TIME]) for (n, data) in iteritems(samples['training']) if n in GESTURES for e in data]
+	inputs_ts = [(n, e[:NUM_FQS*NUM_TIME]) for (n, data) in iteritems(samples['test']) if n in GESTURES for e in data]
 
 	random.shuffle(inputs_tr)
 	random.shuffle(inputs_ts)

@@ -5,8 +5,9 @@ import numpy as np
 import os
 from scipy import fftpack
 from array import array
+from multiprocessing import Pool
 
-MIN_FREQ = 10000
+MIN_FREQ = 20000
 MAX_FREQ = 40000
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -57,7 +58,7 @@ class Sample:
 			snd_data = array('h', wave_file.readframes(CHUNK_SIZE))
 			read += len(snd_data)
 			data.extend(snd_data)
-		
+
 		self.RATE   = RATE
 		self.FRAMES = FRAMES
 		self.data   = data
@@ -81,9 +82,8 @@ class Sample:
 		dft = np.fft.fft(data)[:len(data)//2]
 		dft = np.abs(dft)
 		dft = np.vectorize(lambda x: math.log(x + 1))(dft)
-		dft = sliding_window(dft, 5, max)
 		fqs = fftpack.fftfreq(len(data),float(1)/self.RATE)[:len(data)//2]
-		
+
 		self.fqs = fqs
 		self.dft = dft
 		return fqs, dft
@@ -110,29 +110,42 @@ class Sample:
 
 		return data
 
+def load(path):
+	global GL_POINTS, GL_NUM_WINDOWS
+	points = GL_POINTS
+	num_windows = GL_NUM_WINDOWS
+	print("Loading", path)
+	elements = path.split("/")
+	sample_name = elements[-2]
+	sample = Sample.from_file(path)
+	current = np.array([])
+
+	for s in sample.time_divide_samples(points, num_windows):
+		amps = s.get_data(points)
+		current = np.concatenate([current, amps])
+
+	average = np.average(current)
+	current = current - average
+	scale = np.max(np.absolute(current))
+	current = current / scale
+
+	return (sample_name, current)
+
 def get_all_in_path(p, points = 1024, num_windows = 10, fraction = 1):
+	global GL_POINTS, GL_NUM_WINDOWS
+	GL_POINTS = points
+	GL_NUM_WINDOWS = num_windows
 	samples = {}
-	for path in sorted(glob.glob(p))[::fraction]:
-		print("Loading", path)
-		elements = path.split("/")
-		sample_name = elements[-2]
-		sample = Sample.from_file(path)
-		current = np.array([])
+	paths = sorted(glob.glob(p))[::fraction]
 
-		for s in sample.time_divide_samples(points, num_windows):
-			amps = s.get_data(points)
-			current = np.concatenate([current, amps])
+	with Pool(8) as p:
+		loaded = p.map(load, paths)
 
-		average = np.average(current)
-		current = current - average
-		scale = np.max(np.absolute(current))
-		current = current / scale
+	for (name, data) in loaded:
+		if name not in samples:
+			samples[name] = []
+		samples[name].append(data)
 
-		np.set_printoptions(threshold=np.inf)
-
-		if sample_name not in samples:
-			samples[sample_name] = ([], [])
-		samples[sample_name][1].append(current)
 	return samples
 
 def get_all_samples(points = 1024, num_windows = 10, fraction = 1):
