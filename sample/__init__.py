@@ -34,6 +34,8 @@ def inline_avg(array, idx, a_length = 70):
 
 
 class Sample:
+	FREQUENCY = 1
+	AUTOCORRELATION = 2
 	def __init__(self):
 		self.data = None
 		self.RATE = None
@@ -73,6 +75,15 @@ class Sample:
 
 		return self
 
+	def get_autocorrelation_data(self):
+		if self.xcor is not None:
+			return self.corr
+
+		xcor = (np.fft.ifft(abs(np.array(np.fft.fft(self.data)))**2))
+		xcor = abs(xcor[:len(xcor)/2])
+		self.xcor = xcor
+		return xcor
+
 	def get_frequency_data(self):
 		if self.fqs is not None and self.dft is not None:
 			return self.fqs, self.dft
@@ -95,11 +106,19 @@ class Sample:
 		return (fqs, dft)
 
 
-	def get_data(self, buckets = 1024):
-		fqs, dft = self.get_frequency_data()
-		start = np.searchsorted(fqs, MIN_FREQ)
-		end = np.searchsorted(fqs, MAX_FREQ)
-		data = np.array(dft[start:end])
+	def get_data(self, buckets = 1024, version = 1): # Sample.FREQUENCY
+		data = []
+		if version == Sample.AUTOCORRELATION:
+			xcor = self.get_autocorrelation_data()
+			data = np.array_split(xcor, buckets)
+			data = [np.sum(np.multiply(np.hamming(b.size), b)) for b in data]
+
+		elif version == Sample.FREQUENCY:
+			fqs, dft = self.get_frequency_data()
+			start = np.searchsorted(fqs, MIN_FREQ)
+			end = np.searchsorted(fqs, MAX_FREQ)
+			data = np.array(dft[start:end])
+
 		data = np.array_split(data, buckets)
 		data = [np.sum(np.multiply(np.hamming(b.size), b)) for b in data]
 		return data
