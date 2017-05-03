@@ -15,8 +15,8 @@ def singleton(idx, length):
 def load_data(fraction):
 	samples = sample.get_all_samples(NUM_FQS, NUM_TIME, fraction, version = VERSION)
 
-	inputs_tr = [(n, e[:NUM_FQS*NUM_TIME]) for (n, (f, data)) in iteritems(samples['training']) if n in GESTURES for e in data]
-	inputs_ts = [(n, e[:NUM_FQS*NUM_TIME]) for (n, (f, data)) in iteritems(samples['test']) if n in GESTURES for e in data]
+	inputs_tr = [(n, e[:NUM_FQS*NUM_TIME]) for (n, data) in iteritems(samples['training']) if n in GESTURES for e in data]
+	inputs_ts = [(n, e[:NUM_FQS*NUM_TIME]) for (n, data) in iteritems(samples['test']) if n in GESTURES for e in data]
 
 	random.shuffle(inputs_tr)
 	random.shuffle(inputs_ts)

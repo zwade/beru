@@ -15,7 +15,7 @@ from scipy import fftpack
 import subprocess
 from time import time
 
-import os 
+import os
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 def tdnn_layer(s):
@@ -92,7 +92,7 @@ elif args.command == "expand":
 	input_file = dir_path + "/nets/" + args.input_file + ".npz"
 	archive = np.load(input_file)
 	parts = [archive[file] for file in sorted(archive.files)]
-	
+
 	layers = parts[0]
 	matrices = parts[1:]
 	layers[args.layer, 0] += args.amount
@@ -112,13 +112,13 @@ elif args.command == "expand":
 	np.savez(dir_path + "/nets/" + args.output_file + ".npz", layers, *matrices)
 elif args.command == "classify":
 	FORMAT = pyaudio.paInt16
-	MIN_FREQ = 10000
+	MIN_FREQ = 20000
 	MAX_FREQ = 40000
 	RATE   = 96000
-	NUM_FQS = 48
+	NUM_FQS = 80
 	NUM_TIME = 20
 	TEST_RATE = 1
-	TIMEOUT = 16
+	TIMEOUT = 5
 	CHUNK  = 2 * RATE // NUM_TIME
 	GESTURES = ["o-cw-right", "x-right", "down-right", "s-right"]
 	PROGRESS_CHAR = u"\u2593"
@@ -210,7 +210,7 @@ elif args.command == "classify":
 		if len(outs) > TIMEOUT:
 			outs = outs[1:]
 
-		final = np.max(outs, 0)
+		final = np.median(outs, 0)
 
 		print("\033[2J\033[3J\033[;H\033[0m", end="")
 		rows, columns = subprocess.check_output(['stty', 'size']).decode().split()
@@ -218,8 +218,8 @@ elif args.command == "classify":
 
 		for i in range(len(GESTURES)):
 			progress(GESTURES[i], [
-				(out[0, i], PROGRESS_CHAR, "\033[33m", None),
-				(final[0, i] - out[0, i], PROGRESS_CHAR, "\033[34m", None),
+				(final[0, i], PROGRESS_CHAR, "\033[31m", None),
+				(out[0, i] - final[0, i], PROGRESS_CHAR, "\033[34m", None),
 				(1 - final[0, i], " ", "", None)
 			], 1, width)
 

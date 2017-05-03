@@ -5,8 +5,9 @@ import numpy as np
 import os
 from scipy import fftpack
 from array import array
+from multiprocessing import Pool
 
-MIN_FREQ = 1
+MIN_FREQ = 20000
 MAX_FREQ = 40000
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -60,7 +61,7 @@ class Sample:
 			snd_data = array('h', wave_file.readframes(CHUNK_SIZE))
 			read += len(snd_data)
 			data.extend(snd_data)
-		
+
 		self.RATE   = RATE
 		self.FRAMES = FRAMES
 		self.data   = data
@@ -93,9 +94,8 @@ class Sample:
 		dft = np.fft.fft(data)[:len(data)//2]
 		dft = np.abs(dft)
 		dft = np.vectorize(lambda x: math.log(x + 1))(dft)
-		dft = sliding_window(dft, 5, max)
 		fqs = fftpack.fftfreq(len(data),float(1)/self.RATE)[:len(data)//2]
-		
+
 		self.fqs = fqs
 		self.dft = dft
 		return fqs, dft
@@ -129,42 +129,50 @@ class Sample:
 
 		return data
 
-def get_all_in_path(p, points = 1024, num_windows = 10, fraction = 1, version = FREQUENCY, limit = None):
+def load(path):
+	global GL_POINTS, GL_NUM_WINDOWS, GL_VERSION
+	points = GL_POINTS
+	num_windows = GL_NUM_WINDOWS
+	version = GL_VERSION
+	print("Loading", path)
+	elements = path.split("/")
+	sample_name = elements[-2]
+	sample = Sample.from_file(path)
+	current = np.array([])
+
+	for s in sample.time_divide_samples(points, num_windows):
+		amps = s.get_data(points, version)
+		current = np.concatenate([current, amps])
+
+	average = np.average(current)
+	current = current - average
+	scale = np.max(np.absolute(current))
+	current = current / scale
+
+	return (sample_name, current)
+
+def get_all_in_path(p, points = 1024, num_windows = 10, fraction = 1, version = FREQUENCY):
+	global GL_POINTS, GL_NUM_WINDOWS, GL_VERSION
+	GL_POINTS = points
+	GL_NUM_WINDOWS = num_windows
+	GL_VERSION = version
 	samples = {}
-	limits = {}
-	for path in sorted(glob.glob(p))[::fraction]:
-		elements = path.split("/")
-		sample_name = elements[-2]
+	paths = sorted(glob.glob(p))[::fraction]
 
-		if sample_name in limits and limit is not None and limits[sample_name] >= limit:
-			continue
+	with Pool(8) as p:
+		loaded = p.map(load, paths)
 
-		print("Loading", path)
-		sample = Sample.from_file(path)
-		current = np.array([])
+	for (name, data) in loaded:
+		if name not in samples:
+			samples[name] = []
+		samples[name].append(data)
 
-		for s in sample.time_divide_samples(points, num_windows):
-			amps = s.get_data(points, version = version)
-			current = np.concatenate([current, amps])
-
-		average = np.average(current)
-		current = current - average
-		scale = np.max(np.absolute(current))
-		current = current / scale
-
-		np.set_printoptions(threshold=np.inf)
-
-		if sample_name not in samples:
-			samples[sample_name] = ([], [])
-			limits[sample_name] = 0
-		limits[sample_name] += 1
-		samples[sample_name][1].append(current)
 	return samples
 
-def get_all_samples(points = 1024, num_windows = 10, fraction = 1, version = FREQUENCY, limit = None):
+def get_all_samples(points = 1024, num_windows = 10, fraction = 1, version = FREQUENCY):
 	return {
-		'training': get_all_in_path(dir_path + "/data/*/*.wav",  points, num_windows, fraction, version, limit),
-		'test': get_all_in_path(dir_path + "/test/data/*/*.wav", points, num_windows, 1, version, limit) # not sure why fraction is 1, but that's how it was before I got here so ^\_(''/)_/^
+		'training': get_all_in_path(dir_path + "/data/*/*.wav",  points, num_windows, fraction, version),
+		'test': get_all_in_path(dir_path + "/test/data/*/*.wav", points, num_windows, 1, version) 
 	}
 
 if __name__ == "__main__":
