@@ -6,7 +6,7 @@ import os
 from scipy import fftpack
 from array import array
 
-MIN_FREQ = 10000
+MIN_FREQ = 1
 MAX_FREQ = 40000
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -33,14 +33,15 @@ def inline_avg(array, idx, a_length = 70):
 	return sum(array[lower:upper])/(upper-lower)
 
 
+FREQUENCY = 1
+AUTOCORRELATION = 2
 class Sample:
-	FREQUENCY = 1
-	AUTOCORRELATION = 2
 	def __init__(self):
 		self.data = None
 		self.RATE = None
 		self.fqs  = None
 		self.dft  = None
+		self.xcor = None
 
 	@classmethod
 	def from_file(this, path):
@@ -77,10 +78,10 @@ class Sample:
 
 	def get_autocorrelation_data(self):
 		if self.xcor is not None:
-			return self.corr
+			return self.xcor
 
 		xcor = (np.fft.ifft(abs(np.array(np.fft.fft(self.data)))**2))
-		xcor = abs(xcor[:len(xcor)/2])
+		xcor = abs(xcor[:len(xcor)//2])
 		self.xcor = xcor
 		return xcor
 
@@ -106,21 +107,20 @@ class Sample:
 		return (fqs, dft)
 
 
-	def get_data(self, buckets = 1024, version = 1): # Sample.FREQUENCY
+	def get_data(self, buckets = 1024, version = FREQUENCY):
 		data = []
-		if version == Sample.AUTOCORRELATION:
-			xcor = self.get_autocorrelation_data()
-			data = np.array_split(xcor, buckets)
-			data = [np.sum(np.multiply(np.hamming(b.size), b)) for b in data]
+		if version == AUTOCORRELATION:
+			xcor  = self.get_autocorrelation_data()
+			data  = np.array(xcor[4:buckets+4])
 
-		elif version == Sample.FREQUENCY:
+		elif version == FREQUENCY:
 			fqs, dft = self.get_frequency_data()
 			start = np.searchsorted(fqs, MIN_FREQ)
 			end = np.searchsorted(fqs, MAX_FREQ)
 			data = np.array(dft[start:end])
+			data = np.array_split(data, buckets)
+			data = [np.sum(np.multiply(np.hamming(b.size), b)) for b in data]
 
-		data = np.array_split(data, buckets)
-		data = [np.sum(np.multiply(np.hamming(b.size), b)) for b in data]
 		return data
 
 	def time_divide_samples(self, points = 1024, num_windows = 10):
@@ -129,17 +129,22 @@ class Sample:
 
 		return data
 
-def get_all_in_path(p, points = 1024, num_windows = 10, fraction = 1):
+def get_all_in_path(p, points = 1024, num_windows = 10, fraction = 1, version = FREQUENCY, limit = None):
 	samples = {}
+	limits = {}
 	for path in sorted(glob.glob(p))[::fraction]:
-		print("Loading", path)
 		elements = path.split("/")
 		sample_name = elements[-2]
+
+		if sample_name in limits and limit is not None and limits[sample_name] >= limit:
+			continue
+
+		print("Loading", path)
 		sample = Sample.from_file(path)
 		current = np.array([])
 
 		for s in sample.time_divide_samples(points, num_windows):
-			amps = s.get_data(points)
+			amps = s.get_data(points, version = version)
 			current = np.concatenate([current, amps])
 
 		average = np.average(current)
@@ -151,13 +156,15 @@ def get_all_in_path(p, points = 1024, num_windows = 10, fraction = 1):
 
 		if sample_name not in samples:
 			samples[sample_name] = ([], [])
+			limits[sample_name] = 0
+		limits[sample_name] += 1
 		samples[sample_name][1].append(current)
 	return samples
 
-def get_all_samples(points = 1024, num_windows = 10, fraction = 1):
+def get_all_samples(points = 1024, num_windows = 10, fraction = 1, version = FREQUENCY, limit = None):
 	return {
-		'training': get_all_in_path(dir_path + "/data/*/*.wav",  points, num_windows, fraction),
-		'test': get_all_in_path(dir_path + "/test/data/*/*.wav", points, num_windows)
+		'training': get_all_in_path(dir_path + "/data/*/*.wav",  points, num_windows, fraction, version, limit),
+		'test': get_all_in_path(dir_path + "/test/data/*/*.wav", points, num_windows, 1, version, limit) # not sure why fraction is 1, but that's how it was before I got here so ^\_(''/)_/^
 	}
 
 if __name__ == "__main__":
