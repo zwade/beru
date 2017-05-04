@@ -4,6 +4,7 @@ import numpy as np
 import scipy.io as sio
 import scipy.special as sspec
 import random
+import sample
 import signal
 import sys
 from TDNN import TDNN
@@ -49,6 +50,7 @@ expand.add_argument("amount", type = int, help = "How much to expand the layer b
 
 classify = subparsers.add_parser("classify")
 classify.add_argument("input_file", metavar = "infile", help = "Weights file from which to load")
+classify.add_argument("style", metavar = "style", help = "Which input style to use (frq vs cor)", default = "frq") 
 
 args = parser.parse_args()
 
@@ -115,36 +117,14 @@ elif args.command == "classify":
 	MIN_FREQ = 20000
 	MAX_FREQ = 40000
 	RATE   = 96000
-	NUM_FQS = 80
-	NUM_TIME = 20
+	NUM_FQS = 92
+	NUM_TIME = 16
 	TEST_RATE = 1
 	TIMEOUT = 5
 	CHUNK  = 2 * RATE // NUM_TIME
 	GESTURES = ["o-cw-right", "x-right", "down-right", "s-right"]
 	PROGRESS_CHAR = u"\u2593"
-
-	def sliding_window(array, size, fn):
-		return [fn(array[max(0, i-size):min(len(array)-1, i+size)]) for i in range(len(array))]
-
-	def process_data(data):
-		data = np.abs(data)
-		dft = np.fft.fft(data)[:len(data)//2]
-		dft = np.abs(dft)
-		dft = np.vectorize(lambda x: math.log(x + 1))(dft)
-		dft = sliding_window(dft, 5, max)
-		fqs = fftpack.fftfreq(len(data),float(1)/RATE)[:len(data)//2]
-
-		return fqs, dft
-
-	def get_data(data):
-		fqs, dft = process_data(data)
-		start = np.searchsorted(fqs, MIN_FREQ)
-		end = np.searchsorted(fqs, MAX_FREQ)
-		data = np.array(dft[start:end])
-		data = np.array_split(data, NUM_FQS)
-		data = [np.sum(np.multiply(np.hamming(b.size), b)) for b in data]
-		return data
-
+	VERSION = sample.FREQUENCY if args.style.lower() == "frq" else sample.AUTOCORRELATION
 
 	def progress(title, parts, total, width):
 		total_len = len(str(total))
@@ -181,7 +161,6 @@ elif args.command == "classify":
 
 	while True:
 		data = np.array(array("h", stream.read(CHUNK, exception_on_overflow = False)))
-		data = get_data(data)
 		windows.append(data)
 
 		if len(windows) < NUM_TIME:
@@ -194,11 +173,10 @@ elif args.command == "classify":
 		if cnt % TEST_RATE != 0:
 			continue
 
-		current = np.concatenate(windows)
-		average = np.average(current)
-		current = current - average
-		scale = np.max(np.absolute(current))
-		current = current / scale
+		data = np.concatenate(windows)
+		s = sample.Sample.from_data(data, RATE)
+
+		current = s.get_subtime_data(NUM_FQS, NUM_TIME, VERSION)
 
 		# print(current)
 
@@ -232,4 +210,3 @@ elif args.command == "classify":
 		# 		print("Accepted gesture:", GESTURES[selected])
 		# 		input("Press enter to continue")
 
-		print(average, scale)

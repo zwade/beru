@@ -128,6 +128,21 @@ class Sample:
 		data = [Sample.from_data(part, self.RATE) for part in parts]
 
 		return data
+	
+	def get_subtime_data(self, points, num_windows, version):
+		current = np.array([])
+
+		for s in self.time_divide_samples(points, num_windows):
+			amps = s.get_data(points, version)
+			current = np.concatenate([current, amps])
+
+		average = np.average(current)
+		current = current - average
+		scale = np.max(np.absolute(current))
+		current = current / scale
+
+		return current
+
 
 def load(path):
 	global GL_POINTS, GL_NUM_WINDOWS, GL_VERSION
@@ -138,18 +153,8 @@ def load(path):
 	elements = path.split("/")
 	sample_name = elements[-2]
 	sample = Sample.from_file(path)
-	current = np.array([])
 
-	for s in sample.time_divide_samples(points, num_windows):
-		amps = s.get_data(points, version)
-		current = np.concatenate([current, amps])
-
-	average = np.average(current)
-	current = current - average
-	scale = np.max(np.absolute(current))
-	current = current / scale
-
-	return (sample_name, current)
+	return (sample_name, sample.get_subtime_data(points, num_windows, version))
 
 def get_all_in_path(p, points = 1024, num_windows = 10, fraction = 1, version = FREQUENCY):
 	global GL_POINTS, GL_NUM_WINDOWS, GL_VERSION
