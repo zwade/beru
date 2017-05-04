@@ -4,10 +4,10 @@ import random
 import sample
 
 NUM_FQS  = 128
-NUM_TIME = 20
+NUM_TIME = 1
 TIME_LEN = 2.0 / NUM_TIME
 GESTURES = ["o-cw-right", "x-right", "down-right", "s-right", "noise"]
-VERSION  = sample.AUTOCORRELATION
+VERSION  = sample.FREQUENCY
 
 def singleton(idx, length):
 	return np.matrix([[1 if i == idx else 0 for i in range(length)]])

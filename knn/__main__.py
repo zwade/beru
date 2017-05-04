@@ -22,7 +22,7 @@ def classify(training, test, n = 5):
 	return label
 
 def prep_data():
-	data = sample.get_all_samples(96, version = sample.AUTOCORRELATION,  num_windows = 1, fraction = 1)
+	data = sample.get_all_samples(128, version = sample.FREQUENCY,  num_windows = 1, fraction = 1)
 	training = data['training']
 	testing  = data['test']
 
@@ -31,7 +31,7 @@ def prep_data():
 	for label in testing:
 		count = 0
 		for test in testing[label]:
-			best = classify(training, test, 8)
+			best = classify(training, test, 5)
 			if best == label:
 				count += 1
 		print ("{}: {}/{}".format(label, count, len(testing[label])))
