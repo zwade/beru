@@ -7,7 +7,7 @@ from scipy import fftpack
 from array import array
 from multiprocessing import Pool
 
-MIN_FREQ = 20000
+MIN_FREQ = 5000
 MAX_FREQ = 40000
 
 dir_path = os.path.dirname(os.path.realpath(__file__))

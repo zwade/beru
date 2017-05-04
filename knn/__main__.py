@@ -10,7 +10,7 @@ def classify(training, test, n = 5):
 	test = np.array(test)
 	vals = []
 	for label in training:
-		for l in training[label][1]:
+		for l in training[label]:
 			test_val = np.linalg.norm(np.array(l)-test)
 			vals.append((test_val, label))
 
@@ -30,13 +30,13 @@ def prep_data():
 	num   = 0
 	for label in testing:
 		count = 0
-		for test in testing[label][1]:
-			best = classify(training, test, 10)
+		for test in testing[label]:
+			best = classify(training, test, 8)
 			if best == label:
 				count += 1
-		print ("{}: {}/{}".format(label, count, len(testing[label][1])))
+		print ("{}: {}/{}".format(label, count, len(testing[label])))
 		total += count
-		num   += len(testing[label][1])
+		num   += len(testing[label])
 	print ("{}: {}/{}".format("Total", total, num))
 	
 
