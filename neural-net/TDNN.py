@@ -61,14 +61,15 @@ class TDNN:
 		self.learning_rate = learning_rate
 		Timer(SAVE_RATE, self.periodic_save).start()
 
-	def forward_propagate(self, inp):
+	def forward_propagate(self, inp, sigmoid_output = True):
 		values = np.matrix(inp)
 		self.last = [values]
 
 		for i in range(len(self.layers) - 1):
 			M = self.matrices[i]
 			sample_width = self.layers[i, 1] - self.layers[i+1, 1] + 1
-			groups = [self.sigmoid(self.append_one(values[0, j * self.layers[i, 0] : (j + sample_width) * self.layers[i, 0]]) * M) for j in range(self.layers[i+1, 1])]
+			parts = [self.append_one(values[0, j * self.layers[i, 0] : (j + sample_width) * self.layers[i, 0]]) * M for j in range(self.layers[i+1, 1])]
+			groups = [self.sigmoid(part) if i < len(self.layers) - 2 or sigmoid_output else part for part in parts]
 			values = np.concatenate(groups, axis=1)
 			self.last.append(values)
 
@@ -268,7 +269,7 @@ class TDNN:
 		if self.testing:
 			print()
 			print()
-			print() 
+			print()
 			self.progress("Testing Cases", [
 				(self.testing_current_step, PROGRESS_CHAR, "\033[34m", None),
 				(self.testing_total_steps, NON_PROGRESS_CHAR, "\033[0;37m", None)

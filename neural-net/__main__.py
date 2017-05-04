@@ -50,7 +50,7 @@ expand.add_argument("amount", type = int, help = "How much to expand the layer b
 
 classify = subparsers.add_parser("classify")
 classify.add_argument("input_file", metavar = "infile", help = "Weights file from which to load")
-classify.add_argument("style", metavar = "style", help = "Which input style to use (frq vs cor)", default = "frq") 
+classify.add_argument("style", metavar = "style", help = "Which input style to use (frq vs cor)", default = "frq")
 
 args = parser.parse_args()
 
@@ -123,6 +123,7 @@ elif args.command == "classify":
 	TIMEOUT = 5
 	CHUNK  = 2 * RATE // NUM_TIME
 	GESTURES = ["o-cw-right", "x-right", "down-right", "s-right"]
+	THRESHOLDS = [[0, 0, 0, 0], [0, 4, 0, 0], [0, 0, 8, 0], [0, 0, 0, 3]]
 	PROGRESS_CHAR = u"\u2593"
 	VERSION = sample.FREQUENCY if args.style.lower() == "frq" else sample.AUTOCORRELATION
 
@@ -180,7 +181,7 @@ elif args.command == "classify":
 
 		# print(current)
 
-		out = net.forward_propagate(current)
+		out = net.forward_propagate(current, False)
 
 		# print(out)
 		outs.append(out)
@@ -195,11 +196,17 @@ elif args.command == "classify":
 		width = int(columns)
 
 		for i in range(len(GESTURES)):
-			progress(GESTURES[i], [
-				(final[0, i], PROGRESS_CHAR, "\033[31m", None),
-				(out[0, i] - final[0, i], PROGRESS_CHAR, "\033[34m", None),
-				(1 - final[0, i], " ", "", None)
-			], 1, width)
+		# 	progress(GESTURES[i], [
+		# 		(final[0, i], PROGRESS_CHAR, "\033[31m", None),
+		# 		# (out[0, i] - final[0, i], PROGRESS_CHAR, "\033[34m", None),
+		# 		(1 - final[0, i], " ", "", None)
+		# 	], 1, width)
+			match = True
+			for j in range(len(GESTURES)):
+				if (out[0, j] > THRESHOLDS[i][j] and j != i) or (out[0, j] < THRESHOLDS[i][j] and j == i):
+					match = False
+
+			print("{}{:20s} {:.5f}\033[0m".format("\033[32m" if match else "\033[31m", GESTURES[i] + ":", out[0, i]))
 
 		# if np.max(final) > .5:
 		# 	countdown -= 1
