@@ -117,8 +117,8 @@ elif args.command == "classify":
 	MIN_FREQ = 20000
 	MAX_FREQ = 40000
 	RATE   = 96000
-	NUM_FQS = 92
-	NUM_TIME = 16
+	NUM_FQS = 128
+	NUM_TIME = 20
 	TEST_RATE = 1
 	TIMEOUT = 5
 	CHUNK  = 2 * RATE // NUM_TIME
