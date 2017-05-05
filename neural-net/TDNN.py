@@ -48,7 +48,7 @@ class TDNN:
 			parts = [archive[file] for file in sorted(archive.files)]
 			self.layers = parts[0]
 			self.matrices = parts[1:]
-			print(self.layers, self.matrices)
+			# print(self.layers, self.matrices)
 			print("\033[36m....Done.\033[0m")
 		elif layers is not None:
 			print("\033[36mGenerating new weights for layers", layers, "...  \033[0m", end="")

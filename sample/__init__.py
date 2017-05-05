@@ -164,7 +164,7 @@ def get_all_in_path(p, points = 1024, num_windows = 10, fraction = 1, version = 
 	samples = {}
 	paths = sorted(glob.glob(p))[::fraction]
 
-	with Pool(8) as p:
+	with Pool(4) as p:
 		loaded = p.map(load, paths)
 
 	for (name, data) in loaded:

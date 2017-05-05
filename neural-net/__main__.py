@@ -15,6 +15,7 @@ import math
 from scipy import fftpack
 import subprocess
 from time import time
+import glob
 
 import os
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -51,6 +52,8 @@ expand.add_argument("amount", type = int, help = "How much to expand the layer b
 classify = subparsers.add_parser("classify")
 classify.add_argument("input_file", metavar = "infile", help = "Weights file from which to load")
 classify.add_argument("style", metavar = "style", help = "Which input style to use (frq vs cor)", default = "frq")
+
+testall = subparsers.add_parser("testall")
 
 args = parser.parse_args()
 
@@ -114,18 +117,22 @@ elif args.command == "expand":
 	np.savez(dir_path + "/nets/" + args.output_file + ".npz", layers, *matrices)
 elif args.command == "classify":
 	FORMAT = pyaudio.paInt16
-	MIN_FREQ = 20000
+	MIN_FREQ = 5000
 	MAX_FREQ = 40000
 	RATE   = 96000
 	NUM_FQS = 128
 	NUM_TIME = 20
-	TEST_RATE = 1
-	TIMEOUT = 5
+	TIME_CHUNKS = 1
+	TEST_RATE = 2
+	TIMEOUT = 4
 	CHUNK  = 2 * RATE // NUM_TIME
 	GESTURES = ["o-cw-right", "x-right", "down-right", "s-right"]
-	THRESHOLDS = [[0, 0, 0, 0], [0, 4, 0, 0], [0, 0, 8, 0], [0, 0, 0, 3]]
+	THRESHOLDS = [.4, .6, .6, .4]
+	COOLDOWN = 10
 	PROGRESS_CHAR = u"\u2593"
 	VERSION = sample.FREQUENCY if args.style.lower() == "frq" else sample.AUTOCORRELATION
+	recent = []
+	wait = 0
 
 	def progress(title, parts, total, width):
 		total_len = len(str(total))
@@ -181,32 +188,49 @@ elif args.command == "classify":
 
 		# print(current)
 
-		out = net.forward_propagate(current, False)
+		out = net.forward_propagate(current)
 
 		# print(out)
 		outs.append(out)
 
-		if len(outs) > TIMEOUT:
+		if wait > 0:
+			wait -= 1
+			continue
+
+		while len(outs) > TIMEOUT:
 			outs = outs[1:]
 
-		final = np.median(outs, 0)
+
+		final = np.mean(outs, 0)
 
 		print("\033[2J\033[3J\033[;H\033[0m", end="")
+		# print(outs)
 		rows, columns = subprocess.check_output(['stty', 'size']).decode().split()
 		width = int(columns)
 
 		for i in range(len(GESTURES)):
-		# 	progress(GESTURES[i], [
-		# 		(final[0, i], PROGRESS_CHAR, "\033[31m", None),
-		# 		# (out[0, i] - final[0, i], PROGRESS_CHAR, "\033[34m", None),
-		# 		(1 - final[0, i], " ", "", None)
-		# 	], 1, width)
-			match = True
-			for j in range(len(GESTURES)):
-				if (out[0, j] > THRESHOLDS[i][j] and j != i) or (out[0, j] < THRESHOLDS[i][j] and j == i):
-					match = False
+			progress("{} ({:.5f})".format(GESTURES[i], final[0, i]), [
+				(out[0, i], PROGRESS_CHAR, "\033[31m", None),
+				# (out[0, i] - final[0, i], PROGRESS_CHAR, "\033[34m", None),
+				(1 - out[0, i], " ", "", None)
+			], 1, width)
 
-			print("{}{:20s} {:.5f}\033[0m".format("\033[32m" if match else "\033[31m", GESTURES[i] + ":", out[0, i]))
+			if final[0, i] > THRESHOLDS[i]:
+				recent.append(GESTURES[i])
+				outs = []
+				wait = COOLDOWN
+
+		print()
+		print("\033[32m", end="")
+		for event in recent:
+			print(event)
+		print("\033[0m")
+			# match = True
+			# for j in range(len(GESTURES)):
+			# 	if (out[0, j] > THRESHOLDS[i][j] and j != i) or (out[0, j] < THRESHOLDS[i][j] and j == i):
+			# 		match = False
+
+			# print("{}{:20s} {:.5f}\033[0m".format("\033[32m" if match else "\033[31m", GESTURES[i] + ":", out[0, i]))
 
 		# if np.max(final) > .5:
 		# 	countdown -= 1
@@ -216,4 +240,20 @@ elif args.command == "classify":
 		# 		print()
 		# 		print("Accepted gesture:", GESTURES[selected])
 		# 		input("Press enter to continue")
+elif args.command == "testall":
+	print("Loading data...")
+	tr_X, tr_Y, tr_Z, ts_X, ts_Y, ts_Z, class_names = load_data(1000000)
+	print("Done.")
 
+	for path in sorted(glob.glob(dir_path + "/nets/*.npz")):
+		try:
+			print(path)
+			net = TDNN(input_file = path, learning_rate = 0)
+			print(net.layers)
+			net.test(ts_X, ts_Y, ts_Z)
+			outcomes = net.testing_outcomes
+			success = outcomes[0] + outcomes[1] + outcomes[3]
+			print("Success rate:", success, " / 250")
+			print("Testing error:", net.testing_error)
+		except:
+			pass
